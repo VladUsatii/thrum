@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Leaderboard – Thrum</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-white">
+  <main class="mx-auto max-w-3xl px-4 pb-20 pt-10">
+    <!-- Header -->
+    <section class="border-b border-white/20 pb-6">
+      <div class="flex w-full flex-col items-center justify-center">
+        <a href="{{ url_for('index') }}" class="inline-flex flex-col items-center">
+          <img
+            src="{{ url_for('static', filename='thrumLogo.png') }}"
+            alt="Thrum"
+            class="max-w-[260px] w-auto invert"
+          />
+        </a>
+        <p class="mt-1 text-xs font-mono tracking-tight text-white/70">
+          @vladusatii_&nbsp;&nbsp;&nbsp;github.com/vladusatii
+        </p>
+      </div>
+
+      <div class="mt-4 flex items-center justify-between text-xs font-mono text-white/70">
+        <span class="uppercase tracking-tight">
+          leaderboard
+        </span>
+        <a href="{{ url_for('index') }}" class="hover:text-white">
+          back to home →
+        </a>
+      </div>
+    </section>
+
+    <!-- Leaderboard table -->
+    <section class="mt-10 border border-white/10 bg-black/30 p-6">
+      <h1 class="text-sm font-mono uppercase tracking-tight text-white/70">
+        top spenders (by credits)
+      </h1>
+
+      {% if users %}
+      <div class="mt-4 overflow-x-auto">
+        <table class="w-full border-collapse text-sm">
+          <thead>
+            <tr>
+              <th class="border border-white/15 px-3 py-2 text-left text-xs font-mono uppercase tracking-tight text-white/70 bg-white/10">
+                #
+              </th>
+              <th class="border border-white/15 px-3 py-2 text-left text-xs font-mono uppercase tracking-tight text-white/70 bg-white/10">
+                address
+              </th>
+              <th class="border border-white/15 px-3 py-2 text-left text-xs font-mono uppercase tracking-tight text-white/70 bg-white/10">
+                credits
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in users %}
+            <tr class="bg-black/30 hover:bg-white/5 transition-colors">
+              <td class="border border-white/15 px-3 py-2 text-xs font-mono text-white/70">
+                {{ loop.index }}
+              </td>
+              <td class="border border-white/15 px-3 py-2 text-xs font-mono">
+                {{ user["address"][:8] }}...{{ user["address"][-4:] }}
+              </td>
+              <td class="border border-white/15 px-3 py-2 text-xs font-mono">
+                {{ user["credits"] }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="mt-4 text-xs font-mono text-white/60">
+        no users yet.
+      </p>
+      {% endif %}
+    </section>
+
+    <!-- Footer -->
+    <section class="mt-14 border-t border-white/10 pt-4">
+      <p class="mt-2 font-mono text-xs text-white/60">
+        security / research inquiries →
+        <span class="border border-white/40 bg-black px-2 py-1">
+          vlad@usatii.com
+        </span>
+      </p>
+    </section>
+  </main>
+</body>
+</html>

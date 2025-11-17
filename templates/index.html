@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Thrum – The Heartbeat of Crypto Security</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta
+    name="description"
+    content="Thrum is an autonomous auditor for smart contracts. Static analysis + tiny recursive reasoning + LLM explanations."
+  />
+  <!-- minimal JS: only Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    .ticker-shell {
+      overflow: hidden;
+    }
+
+    .ticker-track {
+      display: flex;
+      width: max-content;
+      animation: thrum-ticker 30s linear infinite;
+    }
+
+    .ticker-group {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      padding-right: 2rem;
+    }
+
+    @keyframes thrum-ticker {
+      0% {
+        transform: translateX(-50%);
+      }
+      100% {
+        /* move left by half of the track width
+           (since we have 2 identical groups) */
+        transform: translateX(0);
+      }
+    }
+  </style>
+</head>
+<body class="bg-black text-white">
+  <!-- Market + leaderboard ticker -->
+  <div class="bg-black/40 px-3 py-2 ticker-shell">
+    <div id="thrum-ticker-track" class="ticker-track text-[0.7rem] font-mono text-white/80">
+      {% for _ in range(2) %}
+      <div class="ticker-group">
+        <!-- ETH + friends -->
+        <div class="flex items-center gap-1" data-coin-id="ethereum">
+          <span class="text-xs font-bold">ETH</span>
+          <span class="text-xs text-white/70">
+            $<span class="coin-price">--</span>
+          </span>
+          <span class="coin-change px-2 py-0.5 rounded text-[0.65rem] bg-white/10 text-white/80">
+            --%
+          </span>
+        </div>
+
+        <div class="flex items-center gap-1" data-coin-id="staked-ether">
+          <span class="text-xs font-bold">stETH</span>
+          <span class="text-xs text-white/70">
+            $<span class="coin-price">--</span>
+          </span>
+          <span class="coin-change px-2 py-0.5 rounded text-[0.65rem] bg-white/10 text-white/80">
+            --%
+          </span>
+        </div>
+
+        <div class="flex items-center gap-1" data-coin-id="uniswap">
+          <span class="text-xs font-bold">UNI</span>
+          <span class="text-xs text-white/70">
+            $<span class="coin-price">--</span>
+          </span>
+          <span class="coin-change px-2 py-0.5 rounded text-[0.65rem] bg-white/10 text-white/80">
+            --%
+          </span>
+        </div>
+
+        <div class="flex items-center gap-1" data-coin-id="aave">
+          <span class="text-xs font-bold">AAVE</span>
+          <span class="text-xs text-white/70">
+            $<span class="coin-price">--</span>
+          </span>
+          <span class="coin-change px-2 py-0.5 rounded text-[0.65rem] bg-white/10 text-white/80">
+            --%
+          </span>
+        </div>
+
+        <!-- Top spenders in blue -->
+        {% for user in top_users %}
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded text-[0.65rem] bg-blue-900/70 text-blue-200 uppercase tracking-tight">
+            top {{ loop.index }}
+          </span>
+          <span class="text-xs">
+            {{ user["address"][:8] }}...{{ user["address"][-4:] }}
+          </span>
+          <span class="text-xs text-blue-200/90">
+            {{ user["credits"] }} cr
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+
+  <main class="mx-auto max-w-3xl px-4 pb-16 pt-10">
+    <!-- Title -->
+    <section>
+        <div class="flex w-full flex-col justify-center items-center">
+      <img
+        src="{{ url_for('static', filename='thrumLogo.png') }}"
+        alt="Thrum"
+        class="max-w-[350px] w-auto invert"
+        />
+      <p class="mt-1 text-xs font-mono  tracking-tight text-white/70">
+        @vladusatii_&nbsp;&nbsp;&nbsp;github.com/vladusatii
+      </p>
+      </div>
+      <br />
+
+      <a href="/wallet" class="mt-4 text-md underline leading-relaxed text-white">
+        connect wallet
+      </a>
+
+
+      <p class="mt-4 text-md leading-relaxed text-white">
+        the heartbeat of crypto security. rn its an autonomous auditor for smart contracts.
+      </p>
+
+      <p class="mt-4 text-md leading-relaxed text-white">
+        on a mission to detect every finance bug in web3 with 100% accuracy. we also have one of the biggest datasets of every known defi vuln.
+      </p>
+
+      <pre
+        class="mt-5 whitespace-pre-wrap border border-white/25 bg-black p-4 text-xs font-mono leading-relaxed text-white"
+      >$ thrum scan .
+&nbsp;&nbsp;&nbsp;→ compiling contracts
+&nbsp;&nbsp;&nbsp;→ analyzing contracts
+&nbsp;&nbsp;&nbsp;→ running detectors
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MV-SCAN [DONE] [50.4s]
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TOCTOU-SCAN [DONE] [20.2s]
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;UPGRADE-SCAN [DONE] [34.4s]
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ORACLE [DONE] [120.8s]
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ERC [DONE] [5.1s]
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...
+&nbsp;&nbsp;&nbsp;→ reasoning over findings
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(A) tiny net [120.3s]
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(B) large net [520s]
+&nbsp;&nbsp;&nbsp;→ writing report: out/thrum-report.md
+
+&nbsp;[DONE] 7 bugs. 2 critical, 3 medium, 2 informational.
+    </section>
+
+    <!-- What -->
+    <section class="mt-8">
+      <h2 class="text-sm font-mono tracking-tight">
+        what is it
+      </h2>
+      <p class="mt-3 text-sm leading-relaxed text-white">
+        a security engine for EVM protocols. It runs your code through a stack of best-in-class static and dynamic detectors, reasons about the findings with a set of state-of-the-art reasoning models, and returns a human-readable report generated by an LLM.
+      </p>
+      <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-white">
+        <li>
+          <span class="font-semibold">detectors</span> like multi-variable state
+          inconsistencies, TOCTOU, upgrade safety, ERC / vault correctness, oracle
+          and AMM patterns.
+        </li>
+        <li>
+          <span class="font-semibold">reasoning core</span> is a SOTA reasoning model that decides what is real, exploitable, and how severe it is with best-in-industry results by accuracy.
+        </li>
+        <li>
+          <span class="font-semibold">explanations</span> generated by a language model that
+          turns structured verdicts into audit writeups.
+        </li>
+      </ul>
+    </section>
+
+    <!-- How -->
+    <section class="mt-8">
+      <h2 class="text-sm font-mono tracking-tight">
+        how it works
+      </h2>
+      <pre
+        class="mt-4 whitespace-pre-wrap border border-white/25 bg-black p-3 text-[0.75rem] font-mono leading-relaxed text-white"
+      >detectors → candidates → advanced ml models → verdicts → llm → report</pre>
+    </section>
+
+    <!-- API -->
+    <section class="mt-8">
+      <h2 class="text-sm font-mono tracking-tight">
+        api
+      </h2>
+     <pre
+        class="flex flex-row items-center justify-center pt-5 text-[0.75rem] font-mono text-white"
+      >
++----------------+----------+-----------------+
+| our best model | 1 price  | 75 credits/scan |
++----------------+----------+-----------------+
+      </pre>
+      <table class="mt-4"
+      style="
+        width:100%;
+        border-collapse: collapse;
+        font-family: monospace;
+        font-size: 0.75rem;
+        background:black;
+        color:white;
+        border:1px solid rgba(255,255,255,0.25);
+      ">
+        <thead>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.25);">
+            <th style="padding:6px; text-align:left;">tier</th>
+            <th style="padding:6px; text-align:left;">credits</th>
+            <th style="padding:6px; text-align:left;">price</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
+            <td style="padding:6px;">basic</td>
+            <td style="padding:6px;">100</td>
+            <td style="padding:6px;">0.01 ETH</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
+            <td style="padding:6px;">pro</td>
+            <td style="padding:6px;">500</td>
+            <td style="padding:6px;">0.05 ETH</td>
+          </tr>
+          <tr>
+            <td style="padding:6px;">enterprise</td>
+            <td style="padding:6px;">custom</td>
+            <td style="padding:6px;">1 ETH fill</td>
+          </tr>
+        </tbody>
+      </table>
+
+
+      <a href="/wallet"><pre
+        class="flex flex-row items-center text-xs mt-8 justify-center [0.75rem] font-mono text-white/50 hover:text-neutral-400 cursor-pointer"
+      >
++------------------------------+
+|   BUY NOW → connect wallet   |
++------------------------------+
+      </pre></a>
+    </section>
+
+    <!-- CLI -->
+    <section class="mt-8">
+      <h2 class="text-sm font-mono tracking-tight">
+        cli
+      </h2>
+      <p class="mt-3 text-sm leading-relaxed text-white">
+        lightweight and easy to use.
+      </p>
+
+      <pre
+        class="mt-3 whitespace-pre-wrap border border-white/25 bg-black p-4 text-xs font-mono leading-relaxed text-white"
+      ># install
+$ curl -sSL https://get.thrum.sh | bash
+
+# initialize a project
+$ thrum init
+
+# run a scan on the current repo
+$ thrum scan .
+
+# view the latest report
+$ less out/thrum-report.md</pre>
+
+      <p class="mt-3 text-sm leading-relaxed text-white">
+        wire Thrum into CI to scan every PR pre-merge.
+      </p>
+
+      <pre
+        class="mt-3 whitespace-pre-wrap border border-white/25 bg-black p-3 text-[0.75rem] font-mono leading-relaxed text-white"
+      >name: Cool scan 123
+
+on:
+  pull_request:
+
+jobs:
+  thrum:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: curl -sSL https://get.thrum.sh | bash
+      - run: thrum scan .</pre>
+    </section>
+
+    <!-- Research -->
+    <section class="mt-8">
+      <h2 class="text-sm font-mono tracking-tight">
+        research
+      </h2>
+      <p class="mt-3 text-sm leading-relaxed text-white">
+        always looking for talented minds to push the limits of program analysis.&nbsp;<a href="/blog/bounties"><u>see our bounties</u></a>. read <a href="/blog/research"><u>this</u></a> too.
+      </p>
+      <p class="mt-3 text-sm leading-relaxed text-white">
+        built on SOTA research in static/dynamic analysis, formal provers like SMT, and automated reasoning:
+      </p>
+      <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-white">
+        <li>multi-variable SI</li>
+        <li>cross-tx and cross-contract TOCTOU</li>
+        <li>trm for clean-up</li>
+        <li>sota ml for verdict</li>
+        <li>llm for reports</li>
+      </ul>
+    </section>
+
+    <!-- Contact -->
+    <section class="mt-8">
+      <p class="mt-2 font-mono text-sm">security inquiries to 
+        <span class="border border-white/40 bg-black px-2 py-1">
+          vlad@usatii.com
+        </span>
+      </p>
+    </section>
+  </main>
+  <script>
+    (function () {
+      const COINS = [
+        { id: "ethereum",     symbol: "ETH" },
+        { id: "staked-ether", symbol: "stETH" },
+        { id: "uniswap",      symbol: "UNI" },
+        { id: "aave",         symbol: "AAVE" },
+      ];
+
+      function applyChangeStyles(el, change) {
+        el.classList.remove(
+          "bg-emerald-900", "text-emerald-300",
+          "bg-red-900", "text-red-300",
+          "bg-white/10", "text-white/80"
+        );
+
+        if (isNaN(change)) {
+          el.classList.add("bg-white/10", "text-white/80");
+          el.textContent = "--%";
+          return;
+        }
+
+        const formatted = (change >= 0 ? "+" : "") + change.toFixed(2) + "%";
+        el.textContent = formatted;
+
+        if (change >= 0) {
+          el.classList.add("bg-emerald-900", "text-emerald-300");
+        } else {
+          el.classList.add("bg-red-900", "text-red-300");
+        }
+      }
+
+      async function fetchPrices() {
+        try {
+          const ids = COINS.map(c => c.id).join(",");
+          const url =
+            "https://api.coingecko.com/api/v3/simple/price" +
+            "?ids=" + encodeURIComponent(ids) +
+            "&vs_currencies=usd" +
+            "&include_24hr_change=true";
+
+          const res = await fetch(url);
+          if (!res.ok) return;
+          const data = await res.json();
+
+          COINS.forEach(coin => {
+            const rows = document.querySelectorAll('[data-coin-id="' + coin.id + '"]');
+            rows.forEach(row => {
+              const priceEl = row.querySelector(".coin-price");
+              const changeEl = row.querySelector(".coin-change");
+              if (!priceEl || !changeEl) return;
+
+              const info = data[coin.id];
+              if (!info) return;
+
+              const price  = info.usd;
+              const change = info.usd_24h_change;
+
+              if (typeof price === "number") {
+                priceEl.textContent = price.toFixed(2);
+              }
+              applyChangeStyles(changeEl, change);
+            });
+          });
+        } catch (e) {
+          console.error("price fetch failed", e);
+        }
+      }
+
+      fetchPrices();
+      setInterval(fetchPrices, 30000); // ~30s refresh
+    })();
+  </script>
+</body>
+</html>

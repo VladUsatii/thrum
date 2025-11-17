@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>connect wallet -- thrum</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Tailwind CDN (same as index/docs/blog) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-white">
+  <main class="mx-auto max-w-3xl px-4 pb-20 pt-10">
+    <!-- Header (same vibe as home/blog/docs) -->
+    <section class="border-b border-white/20 pb-6">
+      <div class="mt-4 flex items-center justify-between text-xs font-mono text-white/70">
+        <span class="uppercase tracking-tight">
+          connect wallet
+        </span>
+        <a href="{{ url_for('index') }}" class="hover:text-white">
+          back to home →
+        </a>
+      </div>
+    </section>
+
+    <!-- Wallet connect content -->
+    <section class="mt-10 p-6">
+        <div class="flex w-full flex-col items-center justify-center">
+        <div class="inline-flex flex-col items-center">
+          <img
+            src="{{ url_for('static', filename='graph.png') }}"
+            alt="graph"
+            class="max-w-[400px] w-auto"
+          />
+      </div>
+    <section class="mt-10 border border-white/10 bg-black/30 p-6">
+      <h1 class="text-sm font-mono uppercase tracking-tight text-white/70">
+        link an evm wallet
+      </h1>
+      <p class="mt-3 text-sm leading-relaxed text-white/80">
+        connect an EVM wallet and sign a login message to create a thrum account.
+      </p>
+
+      <button
+        id="connect-btn"
+        class="mt-5 inline-flex items-center justify-center rounded border border-white/40 bg-black px-4 py-2 text-sm font-mono hover:bg-white/10 disabled:opacity-50"
+      >
+        connect &amp; sign
+      </button>
+
+      <p id="wallet-status" class="mt-4 text-xs font-mono text-white/60"></p>
+    </section>
+
+    <!-- Footer -->
+    <section class="mt-14 border-t border-white/10 pt-4">
+      <p class="mt-2 font-mono text-xs text-white/60">
+        security / research inquiries →
+        <span class="border border-white/40 bg-black px-2 py-1">
+          vlad@usatii.com
+        </span>
+      </p>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const btn = document.getElementById("connect-btn");
+      const statusEl = document.getElementById("wallet-status");
+
+      function setStatus(msg) {
+        statusEl.textContent = msg;
+      }
+
+      async function connectAndSign() {
+        if (typeof window.ethereum === "undefined") {
+          setStatus("no ethereum provider detected. install metamask or another wallet.");
+          return;
+        }
+
+        try {
+          setStatus("requesting accounts...");
+          const accounts = await window.ethereum.request({
+            method: "eth_requestAccounts",
+          });
+
+          if (!accounts || accounts.length === 0) {
+            setStatus("no account returned from wallet.");
+            return;
+          }
+
+          const address = accounts[0];
+          const short = address.slice(0, 6) + "..." + address.slice(-4);
+
+          // Step 1: get message to sign
+          setStatus("connected to " + short + ". fetching login message...");
+          const nonceRes = await fetch(`/api/wallet/nonce?address=${encodeURIComponent(address)}`);
+          const nonceData = await nonceRes.json().catch(() => ({}));
+
+          if (!nonceRes.ok || !nonceData.ok) {
+            setStatus("server refused login message: " + (nonceData.error || nonceRes.status));
+            return;
+          }
+
+          const message = nonceData.message;
+
+          // Step 2: sign the message
+          setStatus("signing login message in wallet...");
+          const signature = await window.ethereum.request({
+            method: "personal_sign",
+            params: [message, address],
+          });
+
+          // Step 3: verify on backend
+          setStatus("verifying signature with thrum backend...");
+          const verifyRes = await fetch("/api/wallet/verify", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              address,
+              message,
+              signature,
+            }),
+          });
+
+          const verifyData = await verifyRes.json().catch(() => ({}));
+
+          if (!verifyRes.ok || !verifyData.ok) {
+            setStatus("verification failed: " + (verifyData.error || verifyRes.status));
+            return;
+          }
+
+          setStatus("wallet linked: " + verifyData.display);
+        } catch (err) {
+          console.error(err);
+          setStatus("error: " + (err && err.message ? err.message : String(err)));
+        }
+      }
+
+      btn.addEventListener("click", () => {
+        connectAndSign();
+      });
+    })();
+  </script>
+</body>
+</html>
