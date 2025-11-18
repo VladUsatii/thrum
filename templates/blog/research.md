@@ -27,3 +27,5 @@ always seeking investment from crypto firms to "build general intelligence for c
 ### our roadmap
 
 ```release thrum v1``` first.
+
+<< to be continued >>

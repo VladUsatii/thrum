@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Thrum – Graphs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-black text-white">
+  <main class="mx-auto max-w-6xl px-4 pb-16 pt-8">
+
+    <!-- Header / nav crumb -->
+    <header class="flex items-center justify-between border-b border-white/20 pb-4">
+      <div>
+        <p class="font-mono text-xs uppercase tracking-[0.25em] text-white/60">
+          thrum
+        </p>
+        <h1 class="mt-1 font-mono text-sm text-white">
+          /graphs
+        </h1>
+      </div>
+      <div class="flex items-center space-x-4 text-xs font-mono text-white/60">
+        <a href="{{ url_for('index') }}" class="hover:text-white/90">home</a>
+        <span class="text-white/30">·</span>
+        <a href="{{ url_for('docs') }}" class="hover:text-white/90">docs</a>
+        <span class="text-white/30">·</span>
+        <span class="text-white">graphs</span>
+      </div>
+    </header>
+
+    <!-- Top KPIs row -->
+    <section class="mt-6 grid gap-3 md:grid-cols-4">
+      <div class="border border-white/15 bg-neutral-950/80 px-4 py-3">
+        <p class="text-[0.65rem] font-mono uppercase tracking-[0.16em] text-white/50">
+          total scans
+        </p>
+        <p class="mt-2 font-mono text-xl" id="kpi-total-scans">{{ graph_data.total_scans }}</p>
+        <p class="mt-1 text-[0.65rem] font-mono text-white/50">
+          dummy +Δ in last 24h
+        </p>
+      </div>
+      <div class="border border-white/15 bg-neutral-950/80 px-4 py-3">
+        <p class="text-[0.65rem] font-mono uppercase tracking-[0.16em] text-white/50">
+          contracts analyzed
+        </p>
+        <p class="mt-2 font-mono text-xl" id="kpi-contracts">{{ graph_data.contracts_analyzed }}</p>
+        <p class="mt-1 text-[0.65rem] font-mono text-white/50">
+          avg contracts / scan
+        </p>
+      </div>
+      <div class="border border-white/15 bg-neutral-950/80 px-4 py-3">
+        <p class="text-[0.65rem] font-mono uppercase tracking-[0.16em] text-white/50">
+          scans with criticals
+        </p>
+        <p class="mt-2 font-mono text-xl" id="kpi-crit-rate">{{ graph_data.crit_scan_rate }}%</p>
+        <p class="mt-1 text-[0.65rem] font-mono text-white/50">
+          rolling 30d hit rate
+        </p>
+      </div>
+      <div class="border border-white/15 bg-neutral-950/80 px-4 py-3">
+        <p class="text-[0.65rem] font-mono uppercase tracking-[0.16em] text-white/50">
+          avg time to verdict
+        </p>
+        <p class="mt-2 font-mono text-xl" id="kpi-ttv">{{ graph_data.avg_verdict_secs }}s</p>
+        <p class="mt-1 text-[0.65rem] font-mono text-white/50">
+          end-to-end scan duration
+        </p>
+      </div>
+    </section>
+
+    <!-- "Ticker" strip -->
+    <section class="mt-6 border border-white/15 bg-neutral-950/80 px-3 py-2">
+      <div class="flex items-center justify-between text-[0.65rem] font-mono uppercase tracking-[0.16em] text-white/50">
+        <span>ecosystem tape</span>
+        <span class="text-white/40">live (synthetic)</span>
+      </div>
+      <div class="mt-2 flex space-x-4 overflow-x-auto pb-1 text-xs font-mono" id="ecosystem-tape">
+        {% for eco in graph_data.ecosystems %}
+        <div class="flex items-baseline space-x-2 whitespace-nowrap border-r border-white/10 pr-4">
+          <span class="rounded border border-white/40 px-1.5 py-0.5 text-[0.6rem] uppercase">{{ eco.name }}</span>
+          <span class="text-white/80">crit/scan {{ "%.2f"|format(eco.crit_per_scan) }}</span>
+          <span class="text-[0.6rem] text-white/50">vol {{ eco.volume }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <!-- Main grid: charts -->
+    <section class="mt-6 grid gap-4 lg:grid-cols-3">
+      <!-- Thrum Index line chart -->
+      <div class="lg:col-span-2 border border-white/15 bg-neutral-950/80 px-4 py-3">
+        <div class="flex items-baseline justify-between">
+          <div>
+            <p class="text-[0.65rem] font-mono uppercase tracking-[0.16em] text-white/50">
+              thrum index
+            </p>
+            <p class="mt-1 text-xs font-mono text-white/60">
+              bug density (findings / 1k loc), rolling 30d
+            </p>
+          </div>
+          <div class="text-right text-[0.65rem] font-mono text-white/60">
+            <p>last 30d</p>
+            <p class="mt-1 text-white">
+              <span id="index-latest">{{ graph_data.index_series[-1] }}</span>
+              <span class="text-white/50">/ 1k loc</span>
+            </p>
+          </div>
+        </div>
+        <div class="mt-3">
+          <canvas id="thrumIndexChart" class="h-48 w-full"></canvas>
+        </div>
+      </div>
+
+      <!-- Severity distribution bar chart -->
+      <div class="border border-white/15 bg-neutral-950/80 px-4 py-3">
+        <p class="text-[0.65rem] font-mono uppercase tracking-[0.16em] text-white/50">
+          severity mix
+        </p>
+        <p class="mt-1 text-xs font-mono text-white/60">
+          findings by severity, synthetic last 7d
+        </p>
+        <div class="mt-3">
+          <canvas id="severityChart" class="h-48 w-full"></canvas>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2 text-[0.65rem] font-mono text-white/60">
+          <div class="flex justify-between border-t border-white/15 pt-1">
+            <span>criticals</span>
+            <span id="sev-crit">{{ graph_data.severity_counts.critical }}</span>
+          </div>
+          <div class="flex justify-between border-t border-white/15 pt-1">
+            <span>high</span>
+            <span id="sev-high">{{ graph_data.severity_counts.high }}</span>
+          </div>
+          <div class="flex justify-between border-t border-white/15 pt-1">
+            <span>medium</span>
+            <span id="sev-med">{{ graph_data.severity_counts.medium }}</span>
+          </div>
+          <div class="flex justify-between border-t border-white/15 pt-1">
+            <span>low</span>
+            <span id="sev-low">{{ graph_data.severity_counts.low }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lower grid: vuln markets + recent scans -->
+    <section class="mt-6 grid gap-4 lg:grid-cols-3">
+      <!-- Top vuln families table -->
+      <div class="border border-white/15 bg-neutral-950/80 px-4 py-3 lg:col-span-2">
+        <p class="text-[0.65rem] font-mono uppercase tracking-[0.16em] text-white/50">
+          hot vulnerability markets
+        </p>
+        <p class="mt-1 text-xs font-mono text-white/60">
+          by family, synthetic 30d
+        </p>
+
+        <div class="mt-3 overflow-x-auto">
+          <table class="min-w-full border-collapse text-[0.7rem] font-mono">
+            <thead>
+              <tr class="border-b border-white/20 text-white/60">
+                <th class="py-1 pr-4 text-left font-normal uppercase tracking-[0.16em]">family</th>
+                <th class="py-1 pr-4 text-right font-normal uppercase tracking-[0.16em]">findings</th>
+                <th class="py-1 pr-4 text-right font-normal uppercase tracking-[0.16em]">crit hit rate</th>
+                <th class="py-1 text-right font-normal uppercase tracking-[0.16em]">avg time to detect</th>
+              </tr>
+            </thead>
+            <tbody id="vuln-table-body">
+              {% for v in graph_data.vuln_families %}
+              <tr class="border-b border-white/10">
+                <td class="py-1 pr-4">{{ v.family }}</td>
+                <td class="py-1 pr-4 text-right">{{ v.findings }}</td>
+                <td class="py-1 pr-4 text-right">{{ v.crit_rate }}%</td>
+                <td class="py-1 text-right">{{ v.ttd_secs }}s</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Recent scans feed -->
+      <div class="border border-white/15 bg-neutral-950/80 px-4 py-3">
+        <p class="text-[0.65rem] font-mono uppercase tracking-[0.16em] text-white/50">
+          recent scans (tape)
+        </p>
+        <p class="mt-1 text-xs font-mono text-white/60">
+          last 10 synthetic jobs
+        </p>
+        <div class="mt-3 space-y-1 text-[0.7rem] font-mono" id="tape-list">
+          {% for row in graph_data.tape %}
+          <div class="flex justify-between border-b border-white/10 pb-1">
+            <span class="text-white/60">{{ row.timestamp }} · {{ row.network }}</span>
+            <span class="text-white/80">{{ row.summary }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Initial data from server -->
+  <script>
+    const initialGraphData = {{ graph_data|tojson }};
+  </script>
+
+  <!-- Charts + live updates -->
+  <script>
+    let indexChart, severityChart;
+
+    function buildCharts(data) {
+      const indexCtx = document.getElementById('thrumIndexChart').getContext('2d');
+      const severityCtx = document.getElementById('severityChart').getContext('2d');
+
+      if (indexChart) indexChart.destroy();
+      if (severityChart) severityChart.destroy();
+
+      indexChart = new Chart(indexCtx, {
+        type: 'line',
+        data: {
+          labels: data.index_labels,
+          datasets: [{
+            data: data.index_series,
+            tension: 0.25,
+            borderWidth: 1.5,
+            pointRadius: 2,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              enabled: true,
+              backgroundColor: 'rgba(15,15,15,0.95)',
+              titleColor: '#ffffff',
+              bodyColor: '#ffffff',
+              borderColor: 'rgba(255,255,255,0.2)',
+              borderWidth: 1
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255,255,255,0.08)' },
+              ticks: {
+                color: 'rgba(255,255,255,0.6)',
+                font: { family: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace', size: 10 }
+              }
+            },
+            y: {
+              grid: { color: 'rgba(255,255,255,0.08)' },
+              ticks: {
+                color: 'rgba(255,255,255,0.6)',
+                font: { family: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace', size: 10 }
+              }
+            }
+          },
+          elements: {
+            line: {
+              borderColor: 'rgba(255,255,255,0.9)',
+              backgroundColor: 'rgba(255,255,255,0.06)'
+            },
+            point: {
+              backgroundColor: 'rgba(255,255,255,0.9)'
+            }
+          }
+        }
+      });
+
+      const sev = data.severity_counts || {critical: 0, high: 0, medium: 0, low: 0};
+
+      severityChart = new Chart(severityCtx, {
+        type: 'bar',
+        data: {
+          labels: ['critical', 'high', 'medium', 'low'],
+          datasets: [{
+            data: [sev.critical, sev.high, sev.medium, sev.low],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              enabled: true,
+              backgroundColor: 'rgba(15,15,15,0.95)',
+              titleColor: '#ffffff',
+              bodyColor: '#ffffff',
+              borderColor: 'rgba(255,255,255,0.2)',
+              borderWidth: 1
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: {
+                color: 'rgba(255,255,255,0.7)',
+                font: { family: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace', size: 9 }
+              }
+            },
+            y: {
+              grid: { color: 'rgba(255,255,255,0.08)' },
+              ticks: {
+                color: 'rgba(255,255,255,0.7)',
+                font: { family: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace', size: 9 }
+              }
+            }
+          },
+          elements: {
+            bar: {
+              backgroundColor: 'rgba(255,255,255,0.75)',
+              borderColor: 'rgba(255,255,255,0.95)'
+            }
+          }
+        }
+      });
+
+      // update numeric labels
+      document.getElementById('index-latest').textContent = data.index_series[data.index_series.length - 1];
+
+      document.getElementById('kpi-total-scans').textContent = data.total_scans;
+      document.getElementById('kpi-contracts').textContent = data.contracts_analyzed;
+      document.getElementById('kpi-crit-rate').textContent = data.crit_scan_rate + '%';
+      document.getElementById('kpi-ttv').textContent = data.avg_verdict_secs + 's';
+
+      document.getElementById('sev-crit').textContent = sev.critical;
+      document.getElementById('sev-high').textContent = sev.high;
+      document.getElementById('sev-med').textContent = sev.medium;
+      document.getElementById('sev-low').textContent = sev.low;
+
+      // ecosystems tape
+      const tapeEl = document.getElementById('ecosystem-tape');
+      tapeEl.innerHTML = '';
+      (data.ecosystems || []).forEach((eco, idx) => {
+        const div = document.createElement('div');
+        div.className = 'flex items-baseline space-x-2 whitespace-nowrap border-r border-white/10 pr-4';
+        if (idx === (data.ecosystems.length - 1)) {
+          div.className = 'flex items-baseline space-x-2 whitespace-nowrap';
+        }
+        div.innerHTML = `
+          <span class="rounded border border-white/40 px-1.5 py-0.5 text-[0.6rem] uppercase">${eco.name}</span>
+          <span class="text-white/80">crit/scan ${eco.crit_per_scan.toFixed(2)}</span>
+          <span class="text-[0.6rem] text-white/50">vol ${eco.volume}</span>
+        `;
+        tapeEl.appendChild(div);
+      });
+
+      // vuln table
+      const vulnBody = document.getElementById('vuln-table-body');
+      vulnBody.innerHTML = '';
+      (data.vuln_families || []).forEach(v => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-white/10';
+        tr.innerHTML = `
+          <td class="py-1 pr-4">${v.family}</td>
+          <td class="py-1 pr-4 text-right">${v.findings}</td>
+          <td class="py-1 pr-4 text-right">${v.crit_rate}%</td>
+          <td class="py-1 text-right">${v.ttd_secs}s</td>
+        `;
+        vulnBody.appendChild(tr);
+      });
+
+      // tape list
+      const tapeList = document.getElementById('tape-list');
+      tapeList.innerHTML = '';
+      (data.tape || []).forEach((row, idx) => {
+        const div = document.createElement('div');
+        div.className = 'flex justify-between border-b border-white/10 pb-1';
+        if (idx === data.tape.length - 1) {
+          div.className = 'flex justify-between';
+        }
+        div.innerHTML = `
+          <span class="text-white/60">${row.timestamp} · ${row.network}</span>
+          <span class="text-white/80">${row.summary}</span>
+        `;
+        tapeList.appendChild(div);
+      });
+    }
+
+    // initial
+    buildCharts(initialGraphData);
+
+    // live refresh every ~2 seconds
+    setInterval(async () => {
+      try {
+        const res = await fetch('/api/graphs/random');
+        if (!res.ok) return;
+        const data = await res.json();
+        buildCharts(data);
+      } catch (e) {
+        // ignore errors; this is just eye candy
+      }
+    }, 2000);
+  </script>
+</body>
+</html>

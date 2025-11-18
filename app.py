@@ -1,8 +1,9 @@
-import os, tempfile, tarfile, shutil, secrets
+import os, tempfile, tarfile, shutil, secrets, time
 from flask import Flask, render_template, abort, request, jsonify, session, g
 from pathlib import Path
 import markdown
 import sqlite3
+import numpy as np
 from eth_account import Account
 from eth_account.messages import encode_defunct
 app = Flask(__name__)
@@ -247,9 +248,116 @@ def api_me():
     if not user: user = get_or_create_user(addr)
     return jsonify({ "ok": True, "address": user["address"], "credits": user["credits"] })
 
-@app.route("/")
-def index():
-    top = get_top_users(3)
-    return render_template("index.html", top_users=top)
+# ------ Graphs ------
 
-if __name__ == "__main__": app.run(host="0.0.0.0", port=5028, debug=True)
+def generate_graph_data():
+    # Time labels for Thrum Index (like -29d, -24d, ..., today)
+    labels = ["-29d", "-24d", "-19d", "-14d", "-9d", "-4d", "today"]
+
+    # Random walk around 0.8 for "bug density"
+    base = 0.8
+    steps = np.random.normal(loc=0.0, scale=0.05, size=len(labels))
+    series = []
+    current = base
+    for step in steps:
+        current = max(0.2, min(1.5, current + step))  # clamp to [0.2, 1.5]
+        series.append(round(float(current), 3))
+
+    # Severity counts as random-ish small integers
+    crit = int(np.random.poisson(lam=10))
+    high = int(np.random.poisson(lam=35))
+    med = int(np.random.poisson(lam=80))
+    low = int(np.random.poisson(lam=140))
+
+    # KPIs – fake but coherent
+    total_scans = int(np.random.randint(1000, 1500))
+    contracts_analyzed = int(total_scans * np.random.uniform(4.5, 6.5))
+    crit_scan_rate = round(
+        100.0 * np.random.uniform(0.15, 0.22), 1
+    )  # 15–22%
+    avg_verdict_secs = int(np.random.uniform(35, 65))
+
+    # Ecosystem "tape"
+    ecosystems = [
+        {"name": "eth", "crit_per_scan": round(float(np.random.uniform(0.15, 0.25)), 2),
+         "volume": int(np.random.randint(400, 600))},
+        {"name": "arb", "crit_per_scan": round(float(np.random.uniform(0.10, 0.18)), 2),
+         "volume": int(np.random.randint(150, 260))},
+        {"name": "op", "crit_per_scan": round(float(np.random.uniform(0.12, 0.2)), 2),
+         "volume": int(np.random.randint(120, 220))},
+        {"name": "base", "crit_per_scan": round(float(np.random.uniform(0.06, 0.14)), 2),
+         "volume": int(np.random.randint(90, 170))},
+        {"name": "other", "crit_per_scan": round(float(np.random.uniform(0.08, 0.16)), 2),
+         "volume": int(np.random.randint(180, 260))},
+    ]
+
+    # Vuln families
+    vuln_families = [
+        {"family": "mv-si", "findings": int(np.random.randint(40, 80)),
+         "crit_rate": int(np.random.randint(20, 35)), "ttd_secs": int(np.random.randint(30, 55))},
+        {"family": "reentrancy", "findings": int(np.random.randint(30, 60)),
+         "crit_rate": int(np.random.randint(15, 28)), "ttd_secs": int(np.random.randint(40, 65))},
+        {"family": "upgrade-safety", "findings": int(np.random.randint(25, 55)),
+         "crit_rate": int(np.random.randint(12, 24)), "ttd_secs": int(np.random.randint(38, 60))},
+        {"family": "oracle", "findings": int(np.random.randint(15, 35)),
+         "crit_rate": int(np.random.randint(10, 20)), "ttd_secs": int(np.random.randint(45, 70))},
+        {"family": "access-control", "findings": int(np.random.randint(10, 30)),
+         "crit_rate": int(np.random.randint(5, 15)), "ttd_secs": int(np.random.randint(25, 45))},
+    ]
+
+    # "tape" – recent scans
+    # just synthesize a few timestamps going back
+    now = int(time.time())
+    tape_rows = []
+    networks = ["eth", "arb", "base", "op", "other"]
+    severities = ["none", "low", "medium", "high", "crit"]
+    for i in range(10):
+        t = now - i * np.random.randint(300, 900)
+        ts = time.strftime("%H:%M:%S utc", time.gmtime(t))
+        net = np.random.choice(networks)
+        sev = np.random.choice(severities, p=[0.2, 0.3, 0.25, 0.15, 0.1])
+        if sev == "none":
+            findings_str = "0 findings"
+        else:
+            findings_str = f"{int(np.random.randint(1, 8))} findings · {sev}"
+        tape_rows.append({"timestamp": ts, "network": net, "summary": findings_str})
+
+    return {
+        "index_labels": labels,
+        "index_series": series,
+        "total_scans": total_scans,
+        "contracts_analyzed": contracts_analyzed,
+        "crit_scan_rate": crit_scan_rate,
+        "avg_verdict_secs": avg_verdict_secs,
+        "severity_counts": {
+            "critical": crit,
+            "high": high,
+            "medium": med,
+            "low": low,
+        },
+        "ecosystems": ecosystems,
+        "vuln_families": vuln_families,
+        "tape": tape_rows,
+    }
+
+@app.route("/graphs/")
+def graphs():
+    data = generate_graph_data()
+    return render_template("graphs.html", graph_data=data)
+
+@app.route("/api/graphs/random")
+def graphs_random():
+    data = generate_graph_data()
+    return jsonify(data)
+
+@app.route("/", methods=["GET"])
+def index():
+    host = (request.host or "").split(":")[0]
+    if host.startswith("get."):
+        return app.send_static_file("install.sh")
+    else:
+        top = get_top_users(3)
+        return render_template("index.html", top_users=top)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5028, debug=True)

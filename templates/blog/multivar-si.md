@@ -10,3 +10,5 @@ smart-contract security detectors have historically taken 2 paths:
 this semester, we decided to achieve perf present in (2), but with (1). and it worked.
 
 here is a benchmark of our results compared to other tools on the market.
+
+<< to be continued >>
