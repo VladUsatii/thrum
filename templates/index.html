@@ -42,72 +42,6 @@
   </style>
 </head>
 <body class="bg-black text-white">
-  <!-- Market + leaderboard ticker -->
-  <div class="bg-black/40 px-3 py-2 ticker-shell">
-    <div id="thrum-ticker-track" class="ticker-track text-[0.7rem] font-mono text-white/80">
-      {% for _ in range(2) %}
-      <div class="ticker-group">
-        <!-- ETH + friends -->
-        <div class="flex items-center gap-1" data-coin-id="ethereum">
-          <span class="text-xs font-bold">ETH</span>
-          <span class="text-xs text-white/70">
-            $<span class="coin-price">--</span>
-          </span>
-          <span class="coin-change px-2 py-0.5 rounded text-[0.65rem] bg-white/10 text-white/80">
-            --%
-          </span>
-        </div>
-
-        <div class="flex items-center gap-1" data-coin-id="staked-ether">
-          <span class="text-xs font-bold">stETH</span>
-          <span class="text-xs text-white/70">
-            $<span class="coin-price">--</span>
-          </span>
-          <span class="coin-change px-2 py-0.5 rounded text-[0.65rem] bg-white/10 text-white/80">
-            --%
-          </span>
-        </div>
-
-        <div class="flex items-center gap-1" data-coin-id="uniswap">
-          <span class="text-xs font-bold">UNI</span>
-          <span class="text-xs text-white/70">
-            $<span class="coin-price">--</span>
-          </span>
-          <span class="coin-change px-2 py-0.5 rounded text-[0.65rem] bg-white/10 text-white/80">
-            --%
-          </span>
-        </div>
-
-        <div class="flex items-center gap-1" data-coin-id="aave">
-          <span class="text-xs font-bold">AAVE</span>
-          <span class="text-xs text-white/70">
-            $<span class="coin-price">--</span>
-          </span>
-          <span class="coin-change px-2 py-0.5 rounded text-[0.65rem] bg-white/10 text-white/80">
-            --%
-          </span>
-        </div>
-
-        <!-- Top spenders in blue -->
-        {% for user in top_users %}
-        <div class="flex items-center gap-2">
-          <span class="px-2 py-0.5 rounded text-[0.65rem] bg-blue-900/70 text-blue-200 uppercase tracking-tight">
-            top {{ loop.index }}
-          </span>
-          <span class="text-xs">
-            {{ user["address"][:8] }}...{{ user["address"][-4:] }}
-          </span>
-          <span class="text-xs text-blue-200/90">
-            {{ user["credits"] }} cr
-          </span>
-        </div>
-        {% endfor %}
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-
-
   <main class="mx-auto max-w-3xl px-4 pb-16 pt-10">
     <!-- Title -->
     <section>
@@ -262,6 +196,10 @@
       ># install
 $ curl -sSL https://get.thrum.sh | bash
 
+# add to path
+$ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bash_profile
+$ source ~/.bash_profile
+
 # initialize a project
 $ thrum init
 
@@ -272,7 +210,7 @@ $ thrum scan .
 $ less out/thrum-report.md</pre>
 
       <p class="mt-3 text-sm leading-relaxed text-white">
-        wire Thrum into CI to scan every PR pre-merge.
+        wire Thrum into CI to scan every PR pre-merge (coming soon)
       </p>
 
       <pre
