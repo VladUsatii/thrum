@@ -9,7 +9,13 @@ from eth_account.messages import encode_defunct
 app = Flask(__name__)
 app.secret_key = "1c5da44f5c278ac7f41f666501347d7572a18ae6"
 BLOG_DIR = Path("templates/blog")
+DOCS_DIR = Path("templates/docs")
 DATABASE = "thrum.db"
+
+# --------- Beta ----------
+
+@app.route("/beta/")
+def beta(): return render_template("beta.html")
 
 # --------- Analyzer ----------
 
@@ -47,8 +53,26 @@ def analyze_project(root: str):
     report_markdown = "\n".join(lines)
     return summary, report_markdown
 
+def get_docs():
+    posts = [] # list available markdown posts
+    for path in DOCS_DIR.glob("*.md"): posts.append({ "slug": path.stem, "title": path.stem.replace("-", " ").title() })
+    posts.sort(key=lambda p: p["slug"], reverse=True)
+    return posts
+
 @app.route("/docs/")
-def docs(): return render_template("docs.html")
+def docs_index():
+    posts = get_docs()
+    return render_template("docs_index.html", posts=posts)
+
+@app.route("/docs/<slug>/")
+def docs_post(slug):
+    md_path = DOCS_DIR / f"{slug}.md"
+    if not md_path.exists(): abort(404)
+    md_text = md_path.read_text(encoding="utf-8")
+    html = markdown.markdown( md_text, extensions=["fenced_code", "tables", "toc"] )
+    return render_template("docs_post.html", content=html, slug=slug)
+
+# ----------------
 
 def get_posts():
     posts = [] # list available markdown posts

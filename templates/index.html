@@ -57,9 +57,8 @@
       </div>
       <br />
 
-      <a href="/wallet" class="mt-4 text-md underline leading-relaxed text-white">
-        connect wallet
-      </a>
+      <a href="/beta" class="mt-4 text-md underline leading-relaxed text-white">join beta</a>&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;
+      <a href="/wallet" class="mt-4 text-md underline leading-relaxed text-white">connect wallet</a>
 
 
       <p class="mt-4 text-md leading-relaxed text-white">
@@ -241,8 +240,12 @@ jobs:
         built on SOTA research in static/dynamic analysis, formal provers like SMT, and automated reasoning:
       </p>
       <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-white">
-        <li>multi-variable SI</li>
-        <li>cross-tx and cross-contract TOCTOU</li>
+        <li>basic static bug detection classes (reentrancy, etc.)</li>
+        <li>cross-contract multi-variable SI detection</li>
+        <li>ERC-4626 manipulation detection</li>
+        <li>CPMM composability/AMM-invariant breakage</li>
+        <li>Cross-chain bridge CCVs</li>
+        <br />
         <li>trm for clean-up</li>
         <li>sota ml for verdict</li>
         <li>llm for reports</li>

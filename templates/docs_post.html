@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ slug }} -- thrum</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Tailwind CDN (same as index) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style type="text/tailwindcss">
+  .markdown-body {
+    @apply text-sm leading-relaxed text-white;
+  }
+
+  .markdown-body h1,
+  .markdown-body h2,
+  .markdown-body h3 {
+    @apply font-mono uppercase tracking-tight text-white/80 mb-2 pt-3 ;
+  }
+
+  .markdown-body h3 {
+    @apply text-sm lowercase;
+  }
+
+  .markdown-body h1 {
+    @apply text-2xl lowercase;
+  }
+
+  .markdown-body h2 {
+    @apply text-xl lowercase;
+  }
+
+  .markdown-body p {
+    @apply mb-3;
+  }
+
+  .markdown-body a {
+    @apply text-blue-400 underline decoration-blue-400/50 hover:text-blue-300 hover:decoration-blue-300;
+  }
+
+  .markdown-body ul,
+  .markdown-body ol {
+    @apply pl-5 mb-3 space-y-1;
+  }
+
+  .markdown-body ul {
+    @apply list-disc;
+  }
+
+  .markdown-body ol {
+    @apply list-decimal;
+  }
+
+  .markdown-body code {
+    @apply font-mono text-xs bg-white/5 px-1 py-0.5 rounded;
+  }
+
+  .markdown-body pre {
+    @apply mb-4 overflow-x-auto rounded border border-white/20 bg-black/70 p-3;
+  }
+
+  .markdown-body pre code {
+    @apply bg-transparent p-0 text-[0.7rem] leading-relaxed;
+  }
+
+  .markdown-body blockquote {
+    @apply border-l-2 border-white/30 pl-3 italic text-white/80 mb-3;
+  }
+
+  .markdown-body table {
+    @apply w-full border-collapse text-sm my-6;
+  }
+
+  /* TABLE BORDER */
+  .markdown-body table th,
+  .markdown-body table td {
+    @apply border border-white/15 px-3 py-2;
+  }
+
+  /* HEADER */
+  .markdown-body table th {
+    @apply bg-white/10 font-mono uppercase tracking-tight text-xs text-white/80;
+  }
+
+  /* ROWS */
+  .markdown-body table tr {
+    @apply bg-black/30;
+  }
+
+  /* ALIGNMENT FIX */
+  .markdown-body table th:first-child,
+  .markdown-body table td:first-child {
+    @apply text-left;
+  }
+
+  .markdown-body hr {
+    @apply my-6 border-white/20;
+  }
+</style>
+</head>
+<body class="bg-black text-white">
+  <main class="mx-auto w-full px-4 pb-16 pt-10">
+    <section class="border-b border-white/20 pb-6">
+      <div class="mt-4 flex items-center justify-between text-xs font-mono text-white/70">
+        <a href="{{ url_for('docs_index') }}" class="hover:text-white">
+          ← thrum blog
+        </a>
+        <span class="uppercase tracking-tight">
+          post / {{ slug }}
+        </span>
+      </div>
+    </section>
+
+    <!-- Article content -->
+    <section class="mt-8">
+        <article class="markdown-body border border-white/15 bg-black/40 px-4 py-5">
+            {{ content|safe }}
+        </article>
+    </section>
+
+    <!-- Footer / contact (optional, matches home tone) -->
+    <section class="mt-10 border-t border-white/10 pt-4">
+      <p class="mt-2 font-mono text-xs text-white/60">
+        security / research inquiries → 
+        <span class="border border-white/40 bg-black px-2 py-1">
+          vlad@usatii.com
+        </span>
+      </p>
+    </section>
+  </main>
+</body>
+</html>

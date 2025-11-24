@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>blog -- thrum</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Tailwind CDN (same as index) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-white">
+  <main class="mx-auto w-full px-4 pb-16 pt-10">
+    <!-- Header (same vibe as home) -->
+    <section class="border-b border-white/20 pb-6">
+
+      <div class="mt-4 flex items-center justify-between text-md font-mono text-white/70">
+        <span class="tracking-tight">
+          <a href="{{ url_for('index') }}" class="flex flex-row font-bold justify-center items-center ">
+            thrum docs
+        </a>
+        </span>
+        <a href="{{ url_for('index') }}" class="hover:text-white">
+          home →
+        </a>
+      </div>
+    </section>
+
+    <!-- Blog list -->
+    <section class="mt-8">
+      <!-- <ul class="disabled text-black divide-y divide-white/10 border border-white/40 bg-white/90 mb-5 ">
+        <li class="px-4 py-3 hover:bg-white/5 transition">
+          <div>
+            <h3 class="font-mono text-lg font-bold ">quickstart</h3>
+            <p class="text-sm font-mono">
+              read the official introduction to thrum CLI. learn how and what it detects, as well as ways to curate output for your security pipeline.
+            </p>
+          </div>
+        </li>
+      </ul> -->
+
+      <h3 class="font-mono text-lg font-bold my-5">detectors</h3>
+      {% if posts %}
+        <ul class="divide-y divide-white/10 border border-white/10">
+          {% for post in posts %}
+          <li class="px-4 py-3 hover:bg-white/5 transition">
+            <a
+              href="{{ url_for('docs_post', slug=post.slug) }}"
+              class="flex items-center justify-between"
+            >
+              <div>
+                <p class="text-sm font-mono">
+                  {{ post.title|lower  }}
+                </p>
+              </div>
+              <span class="text-xs font-mono text-white/50">
+                read →
+              </span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-white/60">
+          no posts yet. check back soon.
+        </p>
+      {% endif %}
+    </section>
+
+    <!-- Footer / contact -->
+    <section class="mt-10 border-t border-white/10 pt-4">
+      <p class="mt-2 font-mono text-xs text-white/60">
+        security / research inquiries to 
+        <span class="border border-white/40 bg-black px-2 py-1">
+          vlad@usatii.com
+        </span>
+      </p>
+    </section>
+  </main>
+</body>
+</html>

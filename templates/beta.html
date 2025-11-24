@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>beta program -- thrum</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-white">
+  <main class="mx-auto max-w-3xl px-4 pb-20 pt-10">
+    <!-- Header -->
+    <section class="border-b border-white/20 pb-6">
+      <div class="mt-4 flex items-center justify-between text-xs font-mono text-white/70">
+        <span class="uppercase tracking-tight">
+          beta access
+        </span>
+        <a href="{{ url_for('index') }}" class="hover:text-white">
+          back to home →
+        </a>
+      </div>
+    </section>
+
+    <!-- Beta email capture -->
+    <section class="mt-4 border border-white/10 bg-black/30 p-6">
+      <h1 class="text-sm font-mono uppercase tracking-tight text-white/70">
+        join thrum beta
+      </h1>
+      <p class="mt-3 text-sm leading-relaxed text-white/80">
+        request to join beta access.
+      </p>
+
+      <form id="beta-form" class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <input
+          type="email"
+          name="email"
+          id="beta-email"
+          required
+          autocomplete="email"
+          placeholder="you@research.lab"
+          class="w-full border border-white/30 bg-black px-3 py-2 text-sm font-mono text-white placeholder:text-white/40 focus:border-white/70 focus:outline-none"
+        />
+        <button
+          type="submit"
+          id="beta-submit"
+          class="inline-flex items-center justify-center rounded border border-white/40 bg-black px-4 py-2 text-xs sm:text-sm font-mono uppercase tracking-tight hover:bg-white/10 disabled:opacity-50"
+        >
+          submit
+        </button>
+      </form>
+
+      <p id="beta-status" class="mt-3 text-xs font-mono text-white/60"></p>
+    </section>
+
+    <!-- Footer -->
+    <section class="mt-14 border-t border-white/10 pt-4">
+      <p class="mt-2 font-mono text-xs text-white/60">
+        security / research inquiries →
+        <span class="border border-white/40 bg-black px-2 py-1">
+          vlad@usatii.com
+        </span>
+      </p>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const form = document.getElementById("beta-form");
+      const emailInput = document.getElementById("beta-email");
+      const submitBtn = document.getElementById("beta-submit");
+      const statusEl = document.getElementById("beta-status");
+
+      // TODO: replace this with your deployed Apps Script / form-to-sheets URL
+      const SHEETS_ENDPOINT = "https://script.google.com/macros/s/AKfycbwKe9uzgMDdIJ-kM5iu2joIvQs-gw83k84FM1moARQXNboUzQ-zDFVgDXWlNs7xzfQe/exec";
+
+      function setStatus(msg) {
+        statusEl.textContent = msg;
+      }
+
+      function setLoading(isLoading) {
+        submitBtn.disabled = isLoading;
+        submitBtn.textContent = isLoading ? "sending..." : "get access";
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = emailInput.value.trim();
+
+        if (!email) {
+            setStatus("enter an email first.");
+            return;
+        }
+
+        setLoading(true);
+        setStatus("");
+
+        try {
+            const formData = new FormData();
+            formData.append("email", email);
+
+            await fetch(SHEETS_ENDPOINT, {
+            method: "POST",
+            body: formData,
+            mode: "no-cors", // opaque but fine; we don't need the response
+            });
+
+            emailInput.value = "";
+            setStatus("added to beta waitlist. check your inbox soon.");
+        } catch (err) {
+            console.error(err);
+            setStatus("could not reach beta signup backend. try again in a bit.");
+        } finally {
+            setLoading(false);
+        }
+        });
+    })();
+  </script>
+</body>
+</html>
