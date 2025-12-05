@@ -3,3 +3,4 @@ Flask==3.1.1
 gunicorn==23.0.0
 Markdown==3.10
 numpy
+requests
