@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>vlad usatii's blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Tailwind CDN (same as index) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-white">
+  <main class="mx-auto max-w-3xl px-4 pb-16 pt-10">
+    <!-- Header (same vibe as home) -->
+    <section class="border-b border-white/20 pb-6">
+
+      <div class="mt-4 flex items-center justify-between text-xs font-mono text-white/70">
+        <span class="tracking-tight">
+          <a href="{{ url_for('index') }}" class="flex flex-row justify-center items-center ">
+            Vlad Usatii's blog
+            </a>
+        </span>
+        <a href="{{ url_for('index') }}" class="hover:text-white">
+          thrum (my pet project) →
+        </a>
+      </div>
+    </section>
+
+    <section class="border-b border-white/20 pb-6">
+
+      <div class="mt-4 flex flex-col items-center justify-between text-xs font-mono text-white/70">
+        <span class="tracking-tight">
+            i am a 3rd-year computer science student at rochester institute of technology, interested in competition math, program analysis and machine learning. rn, doing research on ethereum solidity and building state-of-the-art detectors for complex bug classes to help crypto protocols save millions of $$$; publishing to ACM soon. also building thrum as the world's first autonomous auditor, capable of catching practically every known class of solidity bugs, some at the cross-transaction, cross-contract, and even cross-protocol level, and then shipping you mitigations straight to your terminal. also building a Solidity library of secure functions to avoid needing any of thrum's products (putting my own business out of business lol). on the side, i run a marketing agency that has amassed the attention of elon musk, a16z, gamma ai, and several other big names and organizations. previously was tech lead for @onlocklearning. my agency regularly hits over 100 million views per month cumulatively among all clients. for fun, i play competition chess, piano, bet on prediction markets using sota quantitative models, and participate in crypto bug bounties.
+        </span>
+      </div>
+    </section>
+
+    <!-- Blog list -->
+    <section class="mt-8 pt-8">
+      {% if posts %}
+        <ul class="divide-y divide-white/10 border border-white/10">
+          {% for post in posts %}
+          <li class="px-4 py-3 hover:bg-white/5 transition">
+            <a
+              href="{{ url_for('vlad_post', slug=post.slug) }}"
+              class="flex items-center justify-between"
+            >
+              <div>
+                <p class="text-sm font-mono">
+                  {{ post.title|lower|replace("_", " ")  }}
+                </p>
+              </div>
+              <span class="text-xs font-mono text-white/50">
+                read →
+              </span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-white/60">
+          no posts yet. check back soon.
+        </p>
+      {% endif %}
+
+      <p class="text-center mt-8 text-sm text-white/60 font-mono lowercase">more blog posts soon</p>
+    </section>
+  </main>
+</body>
+</html>

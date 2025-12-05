@@ -1,4 +1,4 @@
-import os, tempfile, tarfile, shutil, secrets, time
+import os, tempfile, tarfile, shutil, secrets, time, requests
 from flask import Flask, render_template, abort, request, jsonify, session, g
 from pathlib import Path
 import markdown
@@ -6,11 +6,218 @@ import sqlite3
 import numpy as np
 from eth_account import Account
 from eth_account.messages import encode_defunct
+from eth_utils import is_address
+
+def auth_addr_from_request():
+    addr = session.get("wallet_address")
+    if addr: return addr.lower()
+    auth = (request.headers.get("Authorization") or "").strip()
+    tok = auth
+    if auth.lower().startswith("bearer "): tok = auth.split(None, 1)[1].strip()
+    if tok and is_address(tok): return tok.lower()
+    return None
+
 app = Flask(__name__)
 app.secret_key = "1c5da44f5c278ac7f41f666501347d7572a18ae6"
 BLOG_DIR = Path("templates/blog")
 DOCS_DIR = Path("templates/docs")
+VLAD_DIR = Path("templates/vlad")
 DATABASE = "thrum.db"
+
+ETHERSCAN_API_URL = os.getenv("ETHERSCAN_API_URL", "https://api.etherscan.io/v2/api")
+ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY", "MW1A7GNV5IQ2X3PCCRITR9RMP2YKRWTYY1").strip()
+PAY_CHAIN_ID = int(os.getenv("PAY_CHAIN_ID", "11155111"))             # 1 = Ethereum mainnet
+MIN_CONFIRMATIONS = int(os.getenv("MIN_CONFIRMATIONS", "1")) #"12"))  # adjust for UX
+WEI_PER_CREDIT = int(os.getenv("WEI_PER_CREDIT", str(10**14))) # 0.0001 ETH/credit
+MAX_TOPUP_WEI = int(os.getenv("MAX_TOPUP_WEI", str(10**18)))
+
+# --------- Helpers ----------
+
+def require_login():
+    addr = session.get("wallet_address")
+    if not addr: return None
+    return addr.lower()
+
+def get_or_assign_deposit_address(user_addr: str) -> str:
+    db = get_db()
+    row = db.execute(
+        "SELECT address FROM deposit_pool WHERE assigned_to = ? AND is_active = 1 LIMIT 1",
+        (user_addr.lower(),),
+    ).fetchone()
+    if row: return row["address"]
+
+    # assign a fresh unassigned address
+    row = db.execute("SELECT address FROM deposit_pool WHERE assigned_to IS NULL AND is_active = 1 LIMIT 1").fetchone()
+    if not row: raise RuntimeError("deposit_pool_empty")
+
+    db.execute(
+        "UPDATE deposit_pool SET assigned_to = ?, assigned_at = CURRENT_TIMESTAMP WHERE address = ?",
+        (user_addr.lower(), row["address"]),
+    )
+    db.commit()
+    return row["address"]
+
+def etherscan_txlist(address: str):
+    if not ETHERSCAN_API_KEY: raise RuntimeError("missing_ETHERSCAN_API_KEY")
+    params = {
+        "chainid": str(PAY_CHAIN_ID),
+        "module": "account",
+        "action": "txlist",
+        "address": address,
+        "startblock": 0,
+        "endblock": 9999999999,
+        "page": 1,
+        "offset": 200,
+        "sort": "desc",
+        "apikey": ETHERSCAN_API_KEY,
+    }
+    r = requests.get(ETHERSCAN_API_URL, params=params, timeout=15)
+    data = r.json()
+
+    # Etherscan returns {status,message,result}; "No transactions found" is common
+    if data.get("message") == "No transactions found": return []
+    if data.get("status") != "1": raise RuntimeError(f"etherscan_error: {data.get('result')}")
+    return data.get("result") or []
+
+# Returns number of NEW credits added during this call
+def sync_and_credit(user_addr: str, deposit_addr: str) -> int:
+    db = get_db()
+    txs = etherscan_txlist(deposit_addr)
+    newly_credited = 0
+    dep = deposit_addr.lower()
+    usr = user_addr.lower()
+
+    # Process newest-first list; order doesn't matter due to tx_hash primary key
+    for tx in txs:
+        to_addr = (tx.get("to") or "").lower()
+        if to_addr != dep: continue
+
+        tx_hash = (tx.get("hash") or "").lower()
+        if not tx_hash.startswith("0x"): continue
+
+        is_error = int(tx.get("isError", "0"))
+        conf = int(tx.get("confirmations", "0") or 0)
+        value_wei = int(tx.get("value", "0") or 0)
+        block_number = int(tx.get("blockNumber", "0") or 0)
+
+        # enforce "1 ETH fill" cap per tx if you want it
+        if value_wei > MAX_TOPUP_WEI: value_wei = MAX_TOPUP_WEI
+
+        # upsert deposit row
+        existing = db.execute(
+            "SELECT is_credited, credited_credits FROM deposits WHERE tx_hash = ?",
+            (tx_hash,),
+        ).fetchone()
+
+        if not existing:
+            db.execute(
+                """
+                INSERT INTO deposits
+                  (tx_hash, user_address, deposit_address, value_wei, block_number, confirmations, is_error, is_credited, credited_credits)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)
+                """,
+                (tx_hash, usr, dep, value_wei, block_number, conf, is_error),
+            )
+        else:
+            db.execute(
+                """
+                UPDATE deposits
+                SET confirmations = ?, block_number = ?, is_error = ?, value_wei = ?
+                WHERE tx_hash = ?
+                """,
+                (conf, block_number, is_error, value_wei, tx_hash),
+            )
+
+        # Credit only once, only if successful + enough confirmations
+        row = db.execute(
+            "SELECT is_credited, value_wei, is_error FROM deposits WHERE tx_hash = ?",
+            (tx_hash,),
+        ).fetchone()
+        if not row or int(row["is_credited"]) == 1: continue
+        if int(row["is_error"]) == 1: continue
+        if conf < MIN_CONFIRMATIONS: continue
+
+        credits = int(row["value_wei"]) // WEI_PER_CREDIT
+        if credits <= 0:
+            # record as credited=1 with 0 credits to avoid repeated work
+            db.execute(
+                "UPDATE deposits SET is_credited = 1, credited_credits = 0, credited_at = CURRENT_TIMESTAMP WHERE tx_hash = ?",
+                (tx_hash,),
+            )
+            continue
+
+        # Atomic credit to prevent double-credit on concurrent calls
+        updated = db.execute(
+            """
+            UPDATE deposits
+            SET is_credited = 1, credited_credits = ?, credited_at = CURRENT_TIMESTAMP
+            WHERE tx_hash = ? AND is_credited = 0
+            """,
+            (credits, tx_hash),
+        ).rowcount
+        if updated == 1:
+            db.execute(
+                "UPDATE users SET credits = credits + ? WHERE address = ?",
+                (credits, usr),
+            )
+            newly_credited += credits
+        db.commit()
+
+    return newly_credited
+
+@app.route("/api/topup/address", methods=["GET"])
+def api_topup_address():
+    user_addr = require_login()
+    if not user_addr: return jsonify({"ok": False, "error": "not_logged_in"}), 401
+
+    try:
+        deposit_addr = get_or_assign_deposit_address(user_addr)
+    except Exception as e:
+        app.logger.exception("topup_check failed")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    # Provide ERC-681 payment URIs (value in WEI)
+    basic_wei = 10**16   # 0.01 ETH
+    pro_wei = 5 * 10**16 # 0.05 ETH
+
+    def eip681(value_wei: int) -> str: return f"ethereum:{deposit_addr}@{PAY_CHAIN_ID}?value={value_wei}"
+
+    return jsonify({
+        "ok": True,
+        "chain_id": PAY_CHAIN_ID,
+        "min_confirmations": MIN_CONFIRMATIONS,
+        "wei_per_credit": WEI_PER_CREDIT,
+        "deposit_address": deposit_addr,
+        "tiers": {
+            "basic": {"eth": "0.01", "credits": 100, "value_wei": basic_wei, "uri": eip681(basic_wei)},
+            "pro": {"eth": "0.05", "credits": 500, "value_wei": pro_wei, "uri": eip681(pro_wei)},
+            #"enterprise": {"max_eth": "1.0", "max_credits": (10**18)//WEI_PER_CREDIT, "max_value_wei": 10**18, "uri_prefix": f"ethereum:{deposit_addr}@{PAY_CHAIN_ID}?value="},
+        }
+    })
+
+@app.route("/api/topup/check", methods=["POST"])
+def api_topup_check():
+    user_addr = require_login()
+    if not user_addr: return jsonify({"ok": False, "error": "not_logged_in"}), 401
+
+    try:
+        deposit_addr = get_or_assign_deposit_address(user_addr)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    try:
+        newly = sync_and_credit(user_addr, deposit_addr)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    user = get_user(user_addr) or get_or_create_user(user_addr)
+    return jsonify({
+        "ok": True,
+        "deposit_address": deposit_addr,
+        "newly_credited": newly,
+        "credits": int(user["credits"]),
+        "min_confirmations": MIN_CONFIRMATIONS
+    })
 
 # --------- Beta ----------
 
@@ -72,6 +279,27 @@ def docs_post(slug):
     html = markdown.markdown( md_text, extensions=["fenced_code", "tables", "toc"] )
     return render_template("docs_post.html", content=html, slug=slug)
 
+# ---- Vlad's blog ----
+
+def get_vlad_blog():
+    posts = [] # list available markdown posts
+    for path in VLAD_DIR.glob("*.md"): posts.append({ "slug": path.stem, "title": path.stem.replace("-", " ").title() })
+    posts.sort(key=lambda p: p["slug"], reverse=True)
+    return posts
+
+@app.route("/vlad/")
+def vlad_index():
+    posts = get_vlad_blog()
+    return render_template("vlad_index.html", posts=posts)
+
+@app.route("/vlad/<slug>/")
+def vlad_post(slug):
+    md_path = VLAD_DIR / f"{slug}.md"
+    if not md_path.exists(): abort(404)
+    md_text = md_path.read_text(encoding="utf-8")
+    html = markdown.markdown( md_text, extensions=["fenced_code", "tables", "toc"] )
+    return render_template("vlad_post.html", content=html, slug=slug)
+
 # ----------------
 
 def get_posts():
@@ -95,7 +323,6 @@ def blog_post(slug):
 
 # ---------- DB HELPERS ----------
 
-# create users table if not existing
 def init_db():
     db = sqlite3.connect(DATABASE)
     db.execute(
@@ -107,6 +334,38 @@ def init_db():
         )
         """
     )
+
+    # Pool of merchant-owned deposit addresses (public addresses only).
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS deposit_pool (
+            address     TEXT PRIMARY KEY,
+            assigned_to TEXT,           -- user wallet address (lowercased)
+            assigned_at DATETIME,
+            is_active   INTEGER NOT NULL DEFAULT 1
+        )
+        """
+    )
+
+    # Track deposits to avoid double-crediting
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS deposits (
+            tx_hash         TEXT PRIMARY KEY,
+            user_address    TEXT NOT NULL,
+            deposit_address TEXT NOT NULL,
+            value_wei       INTEGER NOT NULL,
+            block_number    INTEGER,
+            confirmations   INTEGER NOT NULL DEFAULT 0,
+            is_error        INTEGER NOT NULL DEFAULT 0,
+            is_credited     INTEGER NOT NULL DEFAULT 0,
+            credited_credits INTEGER NOT NULL DEFAULT 0,
+            credited_at     DATETIME,
+            created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
     db.commit()
     db.close()
 
@@ -264,13 +523,20 @@ def api_wallet_verify():
     return jsonify({ "ok": True, "address": recovered, "display": short, "credits": user["credits"] })
 
 # return current logged-in wallet + credits
+# @app.route("/api/me", methods=["GET"])
+# def api_me():
+#     addr = session.get("wallet_address")
+#     if not addr: return jsonify({"ok": False, "error": "not_logged_in"}), 401
+#     user = get_user(addr)
+#     if not user: user = get_or_create_user(addr)
+#     return jsonify({ "ok": True, "address": user["address"], "credits": user["credits"] })
 @app.route("/api/me", methods=["GET"])
 def api_me():
-    addr = session.get("wallet_address")
+    addr = auth_addr_from_request()
     if not addr: return jsonify({"ok": False, "error": "not_logged_in"}), 401
     user = get_user(addr)
     if not user: user = get_or_create_user(addr)
-    return jsonify({ "ok": True, "address": user["address"], "credits": user["credits"] })
+    return jsonify({"ok": True, "address": user["address"], "credits": int(user["credits"])})
 
 # ------ Graphs ------
 
