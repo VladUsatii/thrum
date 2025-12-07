@@ -523,13 +523,6 @@ def api_wallet_verify():
     return jsonify({ "ok": True, "address": recovered, "display": short, "credits": user["credits"] })
 
 # return current logged-in wallet + credits
-# @app.route("/api/me", methods=["GET"])
-# def api_me():
-#     addr = session.get("wallet_address")
-#     if not addr: return jsonify({"ok": False, "error": "not_logged_in"}), 401
-#     user = get_user(addr)
-#     if not user: user = get_or_create_user(addr)
-#     return jsonify({ "ok": True, "address": user["address"], "credits": user["credits"] })
 @app.route("/api/me", methods=["GET"])
 def api_me():
     addr = auth_addr_from_request()
