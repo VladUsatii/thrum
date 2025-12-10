@@ -31,33 +31,35 @@
             class="max-w-[400px] w-auto"
           />
         </div>
-    
+
         <section id="connect-panel" class="mt-10 border border-white/10 bg-black/30 p-6 w-full">
-          <h1 class="text-sm font-mono uppercase tracking-tight text-white/70">
+          <h1 class="text-md font-mono uppercase tracking-tight text-white/70">
             link an evm wallet
           </h1>
           <p class="mt-3 text-sm leading-relaxed text-white/80">
             connect an EVM wallet and sign a login message to create a thrum account.
           </p>
-    
+
+          <hr class="border-white/50 mt-5"/>
+
           <button
             id="connect-btn"
-            class="mt-5 inline-flex items-center justify-center rounded border border-white/40 bg-black px-4 py-2 text-sm font-mono hover:bg-white/10 disabled:opacity-50"
+            class="mt-5 inline-flex items-center justify-center rounded border border-white/40 bg-black px-4 py-2 text-sm font-mono hover:bg-white/10"
           >
             connect &amp; sign
           </button>
-    
+
           <p id="wallet-status" class="mt-4 text-xs font-mono text-white/60"></p>
         </section>
       </div>
     </section>
-    
+
     <section id="topup-panel" class="mt-8 border border-white/10 bg-black/30 p-6 hidden">
       <h2 class="text-sm font-mono uppercase tracking-tight text-white/70">buy credits</h2>
-    
+
       <div class="mt-3 text-sm text-white/80 space-y-2">
         <div>credits: <span id="credits-count" class="font-mono">0</span></div>
-    
+
         <div class="flex items-center gap-2">
           <span class="text-white/70">deposit address:</span>
           <span id="deposit-addr" class="font-mono"></span>
@@ -65,12 +67,12 @@
             copy
           </button>
         </div>
-    
+
         <div class="text-xs text-white/60">
           payments are credited after <span id="min-confs" class="font-mono"></span> confirmations.
         </div>
       </div>
-    
+
       <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <button id="buy-basic" class="rounded border border-white/30 px-3 py-2 text-sm font-mono hover:bg-white/10">
           basic · 0.01 eth · 100 credits
@@ -80,9 +82,91 @@
         </button>
         <button id="check-topup" class="rounded border border-white/30 px-3 py-2 text-sm font-mono hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed">
           check payment
-        </button>        
+        </button>
       </div>
+
+      <!-- NEW: purchase confirmation + clickwrap (hidden until a plan is selected) -->
+      <section id="purchase-confirm" class="mt-6 hidden border border-white/10 bg-black/20 p-5">
+        <h3 class="text-xs font-mono uppercase tracking-tight text-white/70">confirm purchase</h3>
+
+        <div class="mt-3 text-xs text-white/70 space-y-1">
+          <div>selected: <span id="p-label" class="font-mono text-white/80"></span></div>
+          <div>amount: <span id="p-amt" class="font-mono text-white/80"></span></div>
+          <div>estimated credits: <span id="p-credits" class="font-mono text-white/80"></span></div>
+        </div>
+
+        <hr class="border-white/10 mt-4" />
+
+        <h4 class="mt-4 text-xs font-mono uppercase tracking-tight text-white/70">purchase disclosures</h4>
+        <ul class="mt-3 space-y-2 text-xs text-white/70 leading-relaxed">
+          <li>
+            ① Credits are a prepaid, non-refundable digital service credit, unless a refund is required by law.
+            Network fees apply and transactions are irreversible. Credits are issued after the displayed confirmation threshold and may be delayed due to chain reorgs,
+            indexer/API delays, or compliance review.
+          </li>
+          <li>
+            ② We may restrict or refuse service to comply with sanctions/AML obligations, including screening wallet
+            addresses and (where applicable) IP/geolocation signals.
+          </li>
+        </ul>
+
+        <div class="mt-4 space-y-3 text-xs text-white/70">
+          <label class="flex items-start gap-3">
+            <input id="cb-tos" type="checkbox" class="mt-1" />
+            <span>
+              I agree to the <a href="https://thrum.sh/docs/credit-terms/" class="underline hover:text-white">Credit Terms</a> and
+              <a href="https://thrum.sh/docs/privacy/" class="underline hover:text-white">Privacy Policy</a>.
+            </span>
+          </label>
+
+          <label class="flex items-start gap-3">
+            <input id="cb-sanctions" type="checkbox" class="mt-1" />
+            <span>
+              I am not a blocked person and am not using Thrum on behalf of a blocked person; I am not located in,
+              or ordinarily resident in, a comprehensively sanctioned jurisdiction.
+            </span>
+          </label>
+
+          <label class="flex items-start gap-3">
+            <input id="cb-risk" type="checkbox" class="mt-1" />
+            <span>
+              I understand ETH deposits are irreversible and that I must send only on the displayed network to the
+              displayed deposit address.
+            </span>
+          </label>
+        </div>
+
+        <div class="mt-5 flex flex-col gap-3 sm:flex-row">
+          <button
+            id="purchase-submit"
+            disabled
+            class="inline-flex items-center justify-center rounded border border-white/40 bg-black px-4 py-2 text-sm font-mono hover:bg-white/10 disabled:opacity-50"
+          >
+            submit purchase
+          </button>
+
+          <button
+            id="purchase-cancel"
+            class="inline-flex items-center justify-center rounded border border-white/20 bg-black px-4 py-2 text-sm font-mono hover:bg-white/10"
+          >
+            cancel
+          </button>
+        </div>
+      </section>
     </section>
+
+    <!-- Optional: receipt panel -->
+    <div id="tx-receipt" class="mt-4 hidden border border-white/10 bg-black/30 p-4">
+      <h3 class="text-xs font-mono uppercase tracking-tight text-white/70">receipt</h3>
+      <div class="mt-3 grid grid-cols-1 gap-2 text-xs text-white/70">
+        <div>network: <span id="r-chain" class="font-mono"></span></div>
+        <div>from: <span id="r-from" class="font-mono"></span></div>
+        <div>to: <span id="r-to" class="font-mono"></span></div>
+        <div>amount: <span id="r-amt" class="font-mono"></span></div>
+        <div>estimated credits: <span id="r-credits" class="font-mono"></span></div>
+        <div>tx: <a id="r-txlink" class="font-mono underline hover:text-white" target="_blank" rel="noreferrer"></a></div>
+      </div>
+    </div>
 
     <!-- Footer -->
     <section class="mt-14 border-t border-white/10 pt-4">
@@ -99,13 +183,13 @@
     (function () {
       const btn = document.getElementById("connect-btn");
       const statusEl = document.getElementById("wallet-status");
-  
+
       const topupPanel = document.getElementById("topup-panel");
       const creditsCount = document.getElementById("credits-count");
       const depositAddrEl = document.getElementById("deposit-addr");
       const copyDepositBtn = document.getElementById("copy-deposit");
       const minConfsEl = document.getElementById("min-confs");
-  
+
       const buyBasicBtn = document.getElementById("buy-basic");
       const buyProBtn = document.getElementById("buy-pro");
       const buyEnterpriseBtn = document.getElementById("buy-enterprise");
@@ -113,13 +197,49 @@
       const enterpriseCreditsInput = document.getElementById("enterprise-credits");
 
       const connectPanel = document.getElementById("connect-panel");
-  
+
+      // --- purchase clickwrap (shown only after selecting a plan) ---
+      const cbTos = document.getElementById("cb-tos");
+      const cbSanctions = document.getElementById("cb-sanctions");
+      const cbRisk = document.getElementById("cb-risk");
+
+      const purchaseConfirm = document.getElementById("purchase-confirm");
+      const purchaseSubmitBtn = document.getElementById("purchase-submit");
+      const purchaseCancelBtn = document.getElementById("purchase-cancel");
+
+      const pLabelEl = document.getElementById("p-label");
+      const pAmtEl = document.getElementById("p-amt");
+      const pCreditsEl = document.getElementById("p-credits");
+
+      // Connect should not be gated by purchase disclosures anymore.
+      if (btn) btn.disabled = false;
+
+      function consentOk() {
+        return !!(cbTos && cbSanctions && cbRisk && cbTos.checked && cbSanctions.checked && cbRisk.checked);
+      }
+
+      function updatePurchaseEnabled() {
+        if (!purchaseSubmitBtn) return;
+        purchaseSubmitBtn.disabled = !consentOk();
+      }
+
+      cbTos?.addEventListener("change", updatePurchaseEnabled);
+      cbSanctions?.addEventListener("change", updatePurchaseEnabled);
+      cbRisk?.addEventListener("change", updatePurchaseEnabled);
+      updatePurchaseEnabled();
+
       let userAddress = null;
       let depositAddress = null;
       let expectedChainId = null;
       let weiPerCredit = null;
       let minConfirmations = null;
-  
+
+      // pending purchase state (selected plan -> confirm -> submit)
+      let pendingWei = null;     // BigInt
+      let pendingLabel = null;   // string
+      let pendingTier = null; // "basic" | "pro" | ...
+      let pendingCredits = null; // BigInt|null
+
       function setStatus(msg) {
         statusEl.textContent = msg;
       }
@@ -154,7 +274,6 @@
         }, 1000);
       }
 
-  
       function parseDecimalToWei(strEth) {
         // exact parsing of decimal ETH string -> wei BigInt (18 decimals)
         const s = String(strEth).trim();
@@ -164,7 +283,56 @@
         const frac = (parts[1] || "").padEnd(18, "0").slice(0, 18);
         return BigInt(whole) * (10n ** 18n) + BigInt(frac);
       }
-  
+
+      function formatWeiToEth(weiBig, maxFracDigits = 6) {
+        const wei = BigInt(weiBig);
+        const base = 10n ** 18n;
+        const whole = wei / base;
+        const fracRaw = (wei % base).toString().padStart(18, "0");
+        const fracTrimmed = fracRaw.replace(/0+$/, "");
+        const fracShort = fracTrimmed.slice(0, maxFracDigits);
+        return fracShort.length ? `${whole.toString()}.${fracShort}` : `${whole.toString()}`;
+      }
+
+      function resetPurchaseChecks() {
+        if (cbTos) cbTos.checked = false;
+        if (cbSanctions) cbSanctions.checked = false;
+        if (cbRisk) cbRisk.checked = false;
+        updatePurchaseEnabled();
+      }
+
+      function openPurchaseConfirm({ weiBig, label, tier }) {
+        if (!purchaseConfirm) return;
+
+        pendingWei = weiBig;
+        pendingLabel = label;
+        pendingTier = tier;
+
+        // estimated credits
+        let est = null;
+        try {
+          if (weiPerCredit && weiPerCredit > 0n) est = BigInt(weiBig) / weiPerCredit;
+        } catch (_) {}
+
+        pendingCredits = est;
+
+        if (pLabelEl) pLabelEl.textContent = label;
+        if (pAmtEl) pAmtEl.textContent = `${formatWeiToEth(weiBig)} ETH`;
+        if (pCreditsEl) pCreditsEl.textContent = est === null ? "—" : String(est);
+
+        resetPurchaseChecks();
+        purchaseConfirm.classList.remove("hidden");
+        purchaseConfirm.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+
+      function closePurchaseConfirm() {
+        pendingWei = null;
+        pendingLabel = null;
+        pendingCredits = null;
+        purchaseConfirm?.classList.add("hidden");
+      }
+
       async function ensureChain() {
         const chainIdHex = await window.ethereum.request({ method: "eth_chainId" });
         const chainId = parseInt(chainIdHex, 16);
@@ -172,12 +340,12 @@
           throw new Error("wrong network: switch wallet to chain_id=" + expectedChainId);
         }
       }
-  
+
       async function sendPayment(weiBig) {
         if (!userAddress || !depositAddress) throw new Error("not ready");
         await ensureChain();
-  
-        const valueHex = "0x" + weiBig.toString(16);
+
+        const valueHex = "0x" + BigInt(weiBig).toString(16);
         const txHash = await window.ethereum.request({
           method: "eth_sendTransaction",
           params: [{
@@ -186,11 +354,11 @@
             value: valueHex
           }],
         });
-  
+
         setStatus("tx broadcasted: " + txHash + " (polling for confirmations...)");
         startPolling();
       }
-  
+
       async function checkTopupOnce() {
         const res = await fetch("/api/topup/check", { method: "POST" });
         const data = await res.json().catch(() => ({}));
@@ -204,7 +372,7 @@
           setStatus("no credited deposits yet (need " + data.min_confirmations + "+ confirmations).");
         }
       }
-  
+
       let pollTimer = null;
       function startPolling() {
         if (pollTimer) return;
@@ -213,43 +381,55 @@
           catch (e) { /* ignore transient */ }
         }, 10000);
       }
-  
+
       async function loadTopupData() {
         const meRes = await fetch("/api/me");
         const me = await meRes.json().catch(() => ({}));
         if (meRes.ok && me.ok) creditsCount.textContent = String(me.credits);
-  
+
         const res = await fetch("/api/topup/address");
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) throw new Error(data.error || String(res.status));
-  
+
         depositAddress = data.deposit_address;
         expectedChainId = data.chain_id;
         weiPerCredit = BigInt(data.wei_per_credit);
         minConfirmations = data.min_confirmations;
-  
+
         depositAddrEl.textContent = depositAddress;
         minConfsEl.textContent = String(minConfirmations);
         topupPanel.classList.remove("hidden");
       }
-  
+
       copyDepositBtn?.addEventListener("click", async () => {
         if (!depositAddress) return;
         await navigator.clipboard.writeText(depositAddress);
         setStatus("copied deposit address");
       });
-  
-      buyBasicBtn?.addEventListener("click", async () => {
-        try { await sendPayment(parseDecimalToWei("0.01")); }
-        catch (e) { setStatus("error: " + (e.message || String(e))); }
+
+      // Plan selection now opens confirm panel (does NOT send tx immediately)
+      buyBasicBtn?.addEventListener("click", () => {
+        try {
+          openPurchaseConfirm({
+            weiBig: parseDecimalToWei("0.01"),
+            label: "basic · 0.01 eth · 100 credits",
+            tier: "basic",
+          });
+        } catch (e) { setStatus("error: " + (e.message || String(e))); }
       });
-  
-      buyProBtn?.addEventListener("click", async () => {
-        try { await sendPayment(parseDecimalToWei("0.05")); }
-        catch (e) { setStatus("error: " + (e.message || String(e))); }
+
+      buyProBtn?.addEventListener("click", () => {
+        try {
+          openPurchaseConfirm({
+            weiBig: parseDecimalToWei("0.05"),
+            label: "pro · 0.05 eth · 500 credits",
+            tier: "pro",
+          });
+        } catch (e) { setStatus("error: " + (e.message || String(e))); }
       });
-  
+
       buyEnterpriseBtn?.addEventListener("click", async () => {
+        // unchanged behavior; you can later rewire to use the confirm panel if/when you add the inputs
         try {
           const credits = BigInt(enterpriseCreditsInput.value || "0");
           if (credits <= 0n) throw new Error("enter credits");
@@ -260,19 +440,57 @@
           setStatus("error: " + (e.message || String(e)));
         }
       });
-  
+
+      purchaseCancelBtn?.addEventListener("click", () => {
+        closePurchaseConfirm();
+        setStatus("purchase cancelled");
+      });
+
+      purchaseSubmitBtn?.addEventListener("click", async () => {
+        if (!pendingWei) { setStatus("error: no purchase selected"); return; }
+        if (!consentOk()) { setStatus("accept Credit Terms, sanctions, and risk acknowledgements to continue."); return; }
+
+        purchaseSubmitBtn.disabled = true;
+
+        try {
+          // 1) record consent (BigInt must be sent as a string)
+          const consentRes = await fetch("/api/consent/ack", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              kind: "purchase",
+              tier: pendingTier || null,
+              value_wei: pendingWei.toString(),
+            }),
+          });
+
+          const consentData = await consentRes.json().catch(() => ({}));
+          if (!consentRes.ok || !consentData.ok) {
+            throw new Error(consentData.error || `consent_failed:${consentRes.status}`);
+          }
+
+          // 2) broadcast payment
+          await sendPayment(pendingWei);
+          closePurchaseConfirm();
+        } catch (e) {
+          setStatus("error: " + (e.message || String(e)));
+          updatePurchaseEnabled();
+        }
+      });
+
+
       checkTopupBtn?.addEventListener("click", async () => {
         startCheckCooldown(5);
         try { await checkTopupOnce(); }
         catch (e) { setStatus("error: " + (e.message || String(e))); }
       });
-  
+
       async function connectAndSign() {
         if (typeof window.ethereum === "undefined") {
           setStatus("no ethereum provider detected. install metamask or another wallet.");
           return;
         }
-  
+
         try {
           setStatus("requesting accounts...");
           const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
@@ -280,11 +498,11 @@
             setStatus("no account returned from wallet.");
             return;
           }
-  
+
           const address = accounts[0];
           userAddress = address;
           const short = address.slice(0, 6) + "..." + address.slice(-4);
-  
+
           setStatus("connected to " + short + ". fetching login message...");
           const nonceRes = await fetch(`/api/wallet/nonce?address=${encodeURIComponent(address)}`);
           const nonceData = await nonceRes.json().catch(() => ({}));
@@ -292,28 +510,28 @@
             setStatus("server refused login message: " + (nonceData.error || nonceRes.status));
             return;
           }
-  
+
           const message = nonceData.message;
-  
+
           setStatus("signing login message in wallet...");
           const signature = await window.ethereum.request({
             method: "personal_sign",
             params: [message, address],
           });
-  
+
           setStatus("verifying signature with thrum backend...");
           const verifyRes = await fetch("/api/wallet/verify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ address, message, signature }),
           });
-  
+
           const verifyData = await verifyRes.json().catch(() => ({}));
           if (!verifyRes.ok || !verifyData.ok) {
             setStatus("verification failed: " + (verifyData.error || verifyRes.status));
             return;
           }
-  
+
           setStatus("wallet linked: " + verifyData.display + " · loading top-ups...");
           await loadTopupData();
           setStatus("ready to buy credits");
@@ -323,10 +541,10 @@
           setStatus("error: " + (err && err.message ? err.message : String(err)));
         }
       }
-  
+
       btn.addEventListener("click", () => connectAndSign());
     })();
   </script>
-  
+
 </body>
 </html>

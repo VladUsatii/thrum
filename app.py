@@ -8,6 +8,8 @@ from eth_account import Account
 from eth_account.messages import encode_defunct
 from eth_utils import is_address
 
+from compliance import ComplianceEngine, ComplianceConfig
+
 def auth_addr_from_request():
     addr = session.get("wallet_address")
     if addr: return addr.lower()
@@ -16,6 +18,8 @@ def auth_addr_from_request():
     if auth.lower().startswith("bearer "): tok = auth.split(None, 1)[1].strip()
     if tok and is_address(tok): return tok.lower()
     return None
+
+# ==== Globals ====
 
 app = Flask(__name__)
 app.secret_key = "1c5da44f5c278ac7f41f666501347d7572a18ae6"
@@ -30,6 +34,63 @@ PAY_CHAIN_ID = int(os.getenv("PAY_CHAIN_ID", "11155111"))             # 1 = Ethe
 MIN_CONFIRMATIONS = int(os.getenv("MIN_CONFIRMATIONS", "1")) #"12"))  # adjust for UX
 WEI_PER_CREDIT = int(os.getenv("WEI_PER_CREDIT", str(10**14))) # 0.0001 ETH/credit
 MAX_TOPUP_WEI = int(os.getenv("MAX_TOPUP_WEI", str(10**18)))
+
+# ==== Compliance ====
+
+TERMS_VERSION = os.getenv("TERMS_VERSION", "2025-12-08")
+PRIVACY_VERSION = os.getenv("PRIVACY_VERSION", "2025-12-08")
+DISCLOSURES_VERSION = os.getenv("DISCLOSURES_VERSION", "2025-12-08")
+
+ENFORCE_SANCTIONS = os.getenv("ENFORCE_SANCTIONS", "1").strip() not in ("0", "false", "no")
+SANCTIONS_CACHE_TTL_SECS = int(os.getenv("SANCTIONS_CACHE_TTL_SECS", str(24 * 60 * 60)))
+
+OFAC_SDN_ADVANCED_URL = os.getenv(
+    "OFAC_SDN_ADVANCED_URL",
+    "https://www.treasury.gov/ofac/downloads/sanctions/1.0/sdn_advanced.xml",
+)
+OFAC_CONS_ADVANCED_URL = os.getenv("OFAC_CONS_ADVANCED_URL", "https://www.treasury.gov/ofac/downloads/sanctions/1.0/cons_advanced.xml")
+
+COMPLIANCE = ComplianceEngine(
+    ComplianceConfig(
+        enforce_sanctions=ENFORCE_SANCTIONS,
+        sanctions_cache_ttl_seconds=SANCTIONS_CACHE_TTL_SECS,
+        ofac_sdn_advanced_url=OFAC_SDN_ADVANCED_URL,
+        ofac_cons_advanced_url=OFAC_CONS_ADVANCED_URL,
+        terms_version=TERMS_VERSION,
+        privacy_version=PRIVACY_VERSION,
+        disclosures_version=DISCLOSURES_VERSION,
+    )
+)
+
+# ==== Client finders ====
+
+def client_ip(): return (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip() or (request.remote_addr or "")
+def client_ua(): return (request.headers.get("User-Agent") or "")[:500]
+
+# ==== API for sanction/consent ====
+
+@app.route("/api/consent/ack", methods=["POST"])
+def api_consent_ack():
+    user_addr = require_login()
+    if not user_addr: return jsonify({"ok": False, "error": "not_logged_in"}), 401
+
+    data = request.get_json(silent=True) or {}
+    kind = (data.get("kind") or "purchase").strip()
+    tier = (data.get("tier") or "").strip() or None
+
+    value_wei = data.get("value_wei", None)
+    try: value_wei_int = int(value_wei) if value_wei is not None else None
+    except Exception: return jsonify({"ok": False, "error": "invalid_value_wei"}), 400
+
+    db = get_db()
+    try:
+        COMPLIANCE.guard_not_sanctioned(db, user_addr, "wallet")
+    except PermissionError as e:
+        if str(e) == "sanctions_unavailable":
+            return jsonify({"ok": False, "error": "sanctions_unavailable"}), 503
+        return jsonify({"ok": False, "error": "sanctions_match"}), 403
+    COMPLIANCE.record_consent(db=db, user_address=user_addr, kind=kind, value_wei=value_wei_int, tier=tier, ip=client_ip(), user_agent=client_ua())
+    return jsonify({"ok": True, "terms_version": TERMS_VERSION, "privacy_version": PRIVACY_VERSION, "disclosures_version": DISCLOSURES_VERSION})
 
 # --------- Helpers ----------
 
@@ -80,6 +141,90 @@ def etherscan_txlist(address: str):
     return data.get("result") or []
 
 # Returns number of NEW credits added during this call
+# def sync_and_credit(user_addr: str, deposit_addr: str) -> int:
+#     db = get_db()
+#     txs = etherscan_txlist(deposit_addr)
+#     newly_credited = 0
+#     dep = deposit_addr.lower()
+#     usr = user_addr.lower()
+
+#     # Process newest-first list; order doesn't matter due to tx_hash primary key
+#     for tx in txs:
+#         to_addr = (tx.get("to") or "").lower()
+#         if to_addr != dep: continue
+
+#         tx_hash = (tx.get("hash") or "").lower()
+#         if not tx_hash.startswith("0x"): continue
+
+#         is_error = int(tx.get("isError", "0"))
+#         conf = int(tx.get("confirmations", "0") or 0)
+#         value_wei = int(tx.get("value", "0") or 0)
+#         block_number = int(tx.get("blockNumber", "0") or 0)
+
+#         # enforce "1 ETH fill" cap per tx if you want it
+#         if value_wei > MAX_TOPUP_WEI: value_wei = MAX_TOPUP_WEI
+
+#         # upsert deposit row
+#         existing = db.execute(
+#             "SELECT is_credited, credited_credits FROM deposits WHERE tx_hash = ?",
+#             (tx_hash,),
+#         ).fetchone()
+
+#         if not existing:
+#             db.execute(
+#                 """
+#                 INSERT INTO deposits
+#                   (tx_hash, user_address, deposit_address, value_wei, block_number, confirmations, is_error, is_credited, credited_credits)
+#                 VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)
+#                 """,
+#                 (tx_hash, usr, dep, value_wei, block_number, conf, is_error),
+#             )
+#         else:
+#             db.execute(
+#                 """
+#                 UPDATE deposits
+#                 SET confirmations = ?, block_number = ?, is_error = ?, value_wei = ?
+#                 WHERE tx_hash = ?
+#                 """,
+#                 (conf, block_number, is_error, value_wei, tx_hash),
+#             )
+
+#         # Credit only once, only if successful + enough confirmations
+#         row = db.execute(
+#             "SELECT is_credited, value_wei, is_error FROM deposits WHERE tx_hash = ?",
+#             (tx_hash,),
+#         ).fetchone()
+#         if not row or int(row["is_credited"]) == 1: continue
+#         if int(row["is_error"]) == 1: continue
+#         if conf < MIN_CONFIRMATIONS: continue
+
+#         credits = int(row["value_wei"]) // WEI_PER_CREDIT
+#         if credits <= 0:
+#             # record as credited=1 with 0 credits to avoid repeated work
+#             db.execute(
+#                 "UPDATE deposits SET is_credited = 1, credited_credits = 0, credited_at = CURRENT_TIMESTAMP WHERE tx_hash = ?",
+#                 (tx_hash,),
+#             )
+#             continue
+
+#         # Atomic credit to prevent double-credit on concurrent calls
+#         updated = db.execute(
+#             """
+#             UPDATE deposits
+#             SET is_credited = 1, credited_credits = ?, credited_at = CURRENT_TIMESTAMP
+#             WHERE tx_hash = ? AND is_credited = 0
+#             """,
+#             (credits, tx_hash),
+#         ).rowcount
+#         if updated == 1:
+#             db.execute(
+#                 "UPDATE users SET credits = credits + ? WHERE address = ?",
+#                 (credits, usr),
+#             )
+#             newly_credited += credits
+#         db.commit()
+
+#     return newly_credited
 def sync_and_credit(user_addr: str, deposit_addr: str) -> int:
     db = get_db()
     txs = etherscan_txlist(deposit_addr)
@@ -87,80 +232,129 @@ def sync_and_credit(user_addr: str, deposit_addr: str) -> int:
     dep = deposit_addr.lower()
     usr = user_addr.lower()
 
-    # Process newest-first list; order doesn't matter due to tx_hash primary key
     for tx in txs:
         to_addr = (tx.get("to") or "").lower()
-        if to_addr != dep: continue
+        if to_addr != dep:
+            continue
 
         tx_hash = (tx.get("hash") or "").lower()
-        if not tx_hash.startswith("0x"): continue
+        if not tx_hash.startswith("0x"):
+            continue
+
+        from_addr = (tx.get("from") or "").lower()
 
         is_error = int(tx.get("isError", "0"))
         conf = int(tx.get("confirmations", "0") or 0)
         value_wei = int(tx.get("value", "0") or 0)
         block_number = int(tx.get("blockNumber", "0") or 0)
 
-        # enforce "1 ETH fill" cap per tx if you want it
-        if value_wei > MAX_TOPUP_WEI: value_wei = MAX_TOPUP_WEI
+        # enforce "1 ETH fill" cap per tx
+        if value_wei > MAX_TOPUP_WEI:
+            value_wei = MAX_TOPUP_WEI
 
-        # upsert deposit row
         existing = db.execute(
-            "SELECT is_credited, credited_credits FROM deposits WHERE tx_hash = ?",
+            "SELECT is_credited FROM deposits WHERE tx_hash = ?",
             (tx_hash,),
         ).fetchone()
 
         if not existing:
+            # Include from_address + compliance fields if you have the columns.
             db.execute(
                 """
                 INSERT INTO deposits
-                  (tx_hash, user_address, deposit_address, value_wei, block_number, confirmations, is_error, is_credited, credited_credits)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)
+                  (tx_hash, user_address, deposit_address, from_address, value_wei, block_number, confirmations, is_error,
+                   compliance_status, compliance_reason, is_credited, credited_credits)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ok', NULL, 0, 0)
                 """,
-                (tx_hash, usr, dep, value_wei, block_number, conf, is_error),
+                (tx_hash, usr, dep, from_addr, value_wei, block_number, conf, is_error),
             )
         else:
             db.execute(
                 """
                 UPDATE deposits
-                SET confirmations = ?, block_number = ?, is_error = ?, value_wei = ?
+                SET confirmations = ?,
+                    block_number = ?,
+                    is_error = ?,
+                    value_wei = ?,
+                    from_address = COALESCE(?, from_address)
                 WHERE tx_hash = ?
                 """,
-                (conf, block_number, is_error, value_wei, tx_hash),
+                (conf, block_number, is_error, value_wei, from_addr, tx_hash),
             )
 
-        # Credit only once, only if successful + enough confirmations
+        # Ensure the deposit row exists before applying compliance
+        db.commit()
+
+        # ---------- (E) Compliance gate: do NOT credit unless allowed ----------
+        # This should:
+        # - block if tx.from is sanctioned
+        # - hold if no matching consent exists for (usr, value_wei)
+        # - write compliance_status/compliance_reason onto deposits
+        allowed, status = COMPLIANCE.apply_deposit_compliance(
+            db=db,
+            user_address=usr,
+            tx_hash=tx_hash,
+            from_address=from_addr,
+            value_wei=value_wei,
+        )
+        if not allowed:
+            # Do not credit held/blocked deposits
+            continue
+        # --------------------------------------------------------------------
+
+        # Credit only once, only if successful + enough confirmations + compliance ok
         row = db.execute(
-            "SELECT is_credited, value_wei, is_error FROM deposits WHERE tx_hash = ?",
+            "SELECT is_credited, value_wei, is_error, compliance_status FROM deposits WHERE tx_hash = ?",
             (tx_hash,),
         ).fetchone()
-        if not row or int(row["is_credited"]) == 1: continue
-        if int(row["is_error"]) == 1: continue
-        if conf < MIN_CONFIRMATIONS: continue
+
+        if not row:
+            continue
+        if int(row["is_credited"]) == 1:
+            continue
+        if int(row["is_error"]) == 1:
+            continue
+        if (row["compliance_status"] or "ok") != "ok":
+            continue
+        if conf < MIN_CONFIRMATIONS:
+            continue
 
         credits = int(row["value_wei"]) // WEI_PER_CREDIT
         if credits <= 0:
-            # record as credited=1 with 0 credits to avoid repeated work
             db.execute(
-                "UPDATE deposits SET is_credited = 1, credited_credits = 0, credited_at = CURRENT_TIMESTAMP WHERE tx_hash = ?",
+                """
+                UPDATE deposits
+                SET is_credited = 1,
+                    credited_credits = 0,
+                    credited_at = CURRENT_TIMESTAMP
+                WHERE tx_hash = ?
+                """,
                 (tx_hash,),
             )
+            db.commit()
             continue
 
-        # Atomic credit to prevent double-credit on concurrent calls
+        # Atomic credit: include compliance_status guard as well (defense-in-depth)
         updated = db.execute(
             """
             UPDATE deposits
-            SET is_credited = 1, credited_credits = ?, credited_at = CURRENT_TIMESTAMP
-            WHERE tx_hash = ? AND is_credited = 0
+            SET is_credited = 1,
+                credited_credits = ?,
+                credited_at = CURRENT_TIMESTAMP
+            WHERE tx_hash = ?
+              AND is_credited = 0
+              AND (compliance_status IS NULL OR compliance_status = 'ok')
             """,
             (credits, tx_hash),
         ).rowcount
+
         if updated == 1:
             db.execute(
                 "UPDATE users SET credits = credits + ? WHERE address = ?",
                 (credits, usr),
             )
             newly_credited += credits
+
         db.commit()
 
     return newly_credited
@@ -169,6 +363,13 @@ def sync_and_credit(user_addr: str, deposit_addr: str) -> int:
 def api_topup_address():
     user_addr = require_login()
     if not user_addr: return jsonify({"ok": False, "error": "not_logged_in"}), 401
+
+    db = get_db()
+    try: COMPLIANCE.guard_not_sanctioned(db, user_addr, "wallet")
+    except PermissionError as e:
+        if str(e) == "sanctions_unavailable":
+            return jsonify({"ok": False, "error": "sanctions_unavailable"}), 503
+        return jsonify({"ok": False, "error": "sanctions_match"}), 403
 
     try:
         deposit_addr = get_or_assign_deposit_address(user_addr)
@@ -366,6 +567,8 @@ def init_db():
         """
     )
 
+    COMPLIANCE.ensure_schema(db)
+
     db.commit()
     db.close()
 
@@ -480,6 +683,14 @@ def api_wallet_nonce():
     addr = request.args.get("address", "", type=str).strip()
     if not addr or not addr.startswith("0x") or len(addr) != 42: return jsonify({"ok": False, "error": "invalid address"}), 400
 
+    # Enforce sanctions at nonce
+    db = get_db()
+    try: COMPLIANCE.guard_not_sanctioned(db, addr, "wallet")
+    except PermissionError as e:
+        if str(e) == "sanctions_unavailable":
+            return jsonify({"ok": False, "error": "sanctions_unavailable"}), 503
+        return jsonify({"ok": False, "error": "sanctions_match"}), 403
+
     nonce = secrets.token_hex(16)
     session["siwe_nonce"] = nonce
     session["siwe_address"] = addr.lower()
@@ -514,6 +725,14 @@ def api_wallet_verify():
         return jsonify({"ok": False, "error": f"recover_failed: {e}"}), 400
 
     if recovered.lower() != expected_addr or recovered.lower() != address.lower(): return jsonify({"ok": False, "error": "address_mismatch"}), 400
+
+    # Enforce sanctions before ending session
+    db = get_db()
+    try: COMPLIANCE.guard_not_sanctioned(db, recovered, "wallet")
+    except PermissionError as e:
+        if str(e) == "sanctions_unavailable":
+            return jsonify({"ok": False, "error": "sanctions_unavailable"}), 503
+        return jsonify({"ok": False, "error": "sanctions_match"}), 403
 
     session["wallet_logged_in"] = True
     session["wallet_address"] = recovered.lower()
