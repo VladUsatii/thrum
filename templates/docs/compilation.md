@@ -2,7 +2,9 @@
 
 The first crucial step of Thrum's pipeline is the Router.
 
-```This turns an arbitrary Solidity repo - that a protocol submits for a scan - into its compiled, analyzed version, or gives you instructions to make it compilable.```
+```
+This turns an arbitrary Solidity repo - that a protocol submits for a scan - into its compiled, analyzed version, or gives you instructions to make it compilable.
+```
 
 ## What does Router do?
 
